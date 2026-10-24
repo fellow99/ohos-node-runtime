@@ -1,88 +1,83 @@
 #!/usr/bin/env bash
-# build-node-ohos.sh — Build a REAL shared libnode.so for OpenHarmony on GitHub Actions.
+# build-node-ohos.sh — Build a REAL shared libnode.so for OpenHarmony on a CI
+# runner (runs directly on Linux, no Docker).
 #
-# This script runs DIRECTLY on the runner (no Docker). It:
-#   1. Downloads OHOS SDK + LLVM-19 (cached via actions/cache)
-#   2. Downloads Node.js source tarball
-#   3. Applies patches (argument-list-too-long, maglev-assembler.h)
-#   4. Configures + builds with --shared --cross-compiling
-#   5. Strips + self-signs the output
+# Toolchain: LLVM-19 tarball from OpenHarmony daily builds, which contains
+#   llvm-linux-x86_64.tar.gz     (clang + lld, with *-unknown-linux-ohos wrappers)
+#   ohos-sysroot.tar.gz         (OHOS bionic sysroot)
+#   libcxx-ndk-linux-aarch64.tar.gz (libc++_shared.so for arm64)
 #
-# Usage (called by the workflow):
-#   ./scripts/build-node-ohos.sh <node_version> <arch> <make_jobs>
+# No OHOS SDK / Java / code-signing is needed: a native lib packaged inside a
+# HAR/HAP does not require .codesign (verified on device).
+#
+# Usage:
+#   ./scripts/build-node-ohos.sh <node_version> <arch> <llvm_dir> <node_src_dir> <out_dir> [jobs]
 #     node_version  e.g. "24.2.0" (no leading v)
 #     arch          arm64 | x64
-#     make_jobs     parallel make -j (default 2)
-#
-# Output: $OUTPUT_DIR/libnode-<arch>.so
+#     llvm_dir      directory that contains bin/aarch64-unknown-linux-ohos-clang
+#                   (i.e. <extract>/llvm)
+#     node_src_dir  path to extracted node-v<version> source
+#     out_dir       where to write libnode-<arch>.so (+ libc++_shared.so)
+#     jobs          make -j (default: nproc)
 set -euo pipefail
 
-NODE_VERSION="${1:?usage: build-node-ohos.sh <version> <arch> [jobs]}"
-ARCH="${2:?}"
-MAKE_JOBS="${3:-2}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/dist}"
-WORKDIR="${REPO_ROOT}/.build"
+NODE_VERSION="${1:?node_version required}"
+ARCH_IN="${2:?arch required}"
+LLVM_DIR="${3:?llvm_dir required}"
+NODE_SRC="${4:?node_src_dir required}"
+OUT_DIR="${5:?out_dir required}"
+MAKE_JOBS="${6:-$(nproc 2>/dev/null || echo 2)}"
 
-# Map ARCH
-case "${ARCH}" in
-  arm64|aarch64) ARCH="arm64"; CLANG_TRIPLE="aarch64-unknown-linux-ohos" ;;
-  x64|x86_64|amd64) ARCH="x64"; CLANG_TRIPLE="x86_64-unknown-linux-ohos" ;;
-  *) echo "Unsupported ARCH: ${ARCH}"; exit 1 ;;
+case "${ARCH_IN}" in
+  arm64|aarch64) ARCH="arm64"; CLANG_TRIPLE="aarch64-unknown-linux-ohos"; LIBCXX_TARBALL="libcxx-ndk-linux-aarch64.tar.gz" ;;
+  x64|x86_64|amd64) ARCH="x64"; CLANG_TRIPLE="x86_64-unknown-linux-ohos"; LIBCXX_TARBALL="libcxx-ndk-linux-x86_64.tar.gz" ;;
+  *) echo "Unsupported ARCH: ${ARCH_IN}"; exit 1 ;;
 esac
 
 VERSION="v${NODE_VERSION}"
-NODE_DIR="${WORKDIR}/node-${VERSION}"
-INSTALL_PREFIX="${WORKDIR}/node-${VERSION}-openharmony-${ARCH}"
+INSTALL_PREFIX="${OUT_DIR}/install-${ARCH}"
 
-mkdir -p "${WORKDIR}" "${OUTPUT_DIR}"
+mkdir -p "${OUT_DIR}"
 
-# --- OHOS SDK + LLVM-19 (downloaded by workflow, expected at $WORKDIR) --------
-SDK_DIR="${WORKDIR}/ohos-sdk/linux"
-LLVM_DIR="${WORKDIR}/llvm-19/llvm"
-
-if [ ! -d "${SDK_DIR}/toolchains" ]; then
-    echo "ERROR: OHOS SDK not found at ${SDK_DIR}/toolchains"
+# --- Verify toolchain -----------------------------------------------------------
+CLANG="${LLVM_DIR}/bin/${CLANG_TRIPLE}-clang"
+if [ ! -x "${CLANG}" ]; then
+    echo "ERROR: clang wrapper not found: ${CLANG}"
+    echo "  LLVM_DIR contents:"; ls -la "${LLVM_DIR}/bin" 2>/dev/null | head -20 || true
     exit 1
 fi
-if [ ! -d "${LLVM_DIR}/bin" ]; then
-    echo "ERROR: LLVM-19 not found at ${LLVM_DIR}/bin"
-    exit 1
-fi
-echo "==> OHOS SDK: ${SDK_DIR}"
-echo "==> LLVM-19:  ${LLVM_DIR}"
-
-# --- Node.js source (downloaded by workflow, expected at $WORKDIR) ------------
-if [ ! -f "${NODE_DIR}/configure" ]; then
-    echo "ERROR: Node.js source not found at ${NODE_DIR}"
-    exit 1
-fi
-echo "==> Node source: ${NODE_DIR}"
+echo "==> Clang: ${CLANG}"
+echo "==> Node source: ${NODE_SRC}"
+[ -f "${NODE_SRC}/configure" ] || { echo "ERROR: ${NODE_SRC}/configure missing"; exit 1; }
 
 # --- Environment ----------------------------------------------------------------
-export CC="${LLVM_DIR}/bin/${CLANG_TRIPLE}-clang -fno-emulated-tls"
+export CC="${CLANG} -fno-emulated-tls"
 export CXX="${LLVM_DIR}/bin/${CLANG_TRIPLE}-clang++ -fno-emulated-tls"
 export CC_host="gcc"
 export CXX_host="g++"
 export CFLAGS="${CFLAGS:-} -DNDEBUG"
 export CXXFLAGS="${CXXFLAGS:-} -DNDEBUG"
 
-echo "    CC=${CC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- Patches --------------------------------------------------------------------
-cd "${NODE_DIR}"
+cd "${NODE_SRC}"
 
-# Patch 0001: fix argument list too long (gyp make generator for openharmony)
-if [ -f "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" ]; then
-    echo "==> Applying 0001-fix-argument-list-too-long.patch"
-    patch -p1 < "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" || echo "    (already applied or failed, continuing)"
+# Patch 0001: gyp make generator — treat openharmony like linux/android for
+# shared-lib link rules. Only needed on early v24.x / v22.x; harmless to skip
+# elsewhere (patch would fail to apply).
+NEED_0001="v24.2.0 v24.3.0 v24.4.0 v24.4.1 v24.5.0 v24.6.0"
+if echo " ${NEED_0001} " | grep -q " ${VERSION} "; then
+    if [ -f "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" ]; then
+        echo "==> Applying 0001-fix-argument-list-too-long.patch"
+        patch -p1 < "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" || echo "    (apply returned non-zero, continuing)"
+    fi
 fi
 
-# Patch: maglev-assembler.h — move set_allow_* out of #ifdef DEBUG
-MAGLEV_H="${NODE_DIR}/deps/v8/src/maglev/maglev-assembler.h"
+# Patch: maglev-assembler.h — move set_allow_* declarations out of #ifdef DEBUG
+MAGLEV_H="${NODE_SRC}/deps/v8/src/maglev/maglev-assembler.h"
 if [ -f "${MAGLEV_H}" ]; then
-    echo "==> Patching maglev-assembler.h"
+    echo "==> Patching maglev-assembler.h (set_allow_* DEBUG guard)"
     awk '
     /^#ifdef DEBUG$/ {
         save = $0
@@ -97,93 +92,57 @@ if [ -f "${MAGLEV_H}" ]; then
         }
     }
     /^#endif  \/\/ DEBUG$/ {
-        if (prev ~ /allow_deferred_call/) {
-            next
-        } else {
-            print
-            next
-        }
+        if (prev ~ /allow_deferred_call/) { next } else { print; next }
     }
     { prev = $0; print }
     ' "${MAGLEV_H}" > "${MAGLEV_H}.tmp" && mv "${MAGLEV_H}.tmp" "${MAGLEV_H}"
-    if ! grep -q 'bool allow_allocate_ = false;' "${MAGLEV_H}"; then
+    grep -q 'bool allow_allocate_ = false;' "${MAGLEV_H}" || \
         sed -i 's/  bool allow_call_ = false;/  bool allow_allocate_ = false;\n  bool allow_call_ = false;/' "${MAGLEV_H}"
-    fi
-    echo "    Done"
 fi
 
-# --- Configure -------------------------------------------------------------------
-echo "==> Configuring Node.js ${VERSION} for OpenHarmony ${ARCH} ..."
+# Some early v24/v22 builds error on implicit function declarations under -Werror
+NEED_NOERROR="v24.2.0 v24.3.0 v24.4.0 v24.4.1 v24.5.0 v24.6.0 v24.7.0 v24.8.0 v22.17.0 v22.17.1 v22.18.0 v22.19.0"
+if echo " ${NEED_NOERROR} " | grep -q " ${VERSION} "; then
+    export CC="${CC} -Wno-error=implicit-function-declaration"
+    export CXX="${CXX} -Wno-error=implicit-function-declaration"
+fi
 
+# --- Configure ------------------------------------------------------------------
+echo "==> Configuring Node.js ${VERSION} for OpenHarmony ${ARCH} ..."
 CONFIGURE_ARGS="--dest-cpu=${ARCH} \
   --dest-os=openharmony \
   --cross-compiling \
   --openssl-no-asm \
   --shared \
   --prefix=${INSTALL_PREFIX}"
-
-# Add --v8-disable-temporal-support if the configure script supports it
 if ./configure --help 2>&1 | grep -q -- "--v8-disable-temporal-support"; then
     CONFIGURE_ARGS="${CONFIGURE_ARGS} --v8-disable-temporal-support"
-    echo "    (added --v8-disable-temporal-support)"
 fi
-
-echo "    Args: ${CONFIGURE_ARGS}"
+echo "    ${CONFIGURE_ARGS}"
 ./configure ${CONFIGURE_ARGS}
 
-# --- Build ------------------------------------------------------------------------
+# --- Build + install ------------------------------------------------------------
 echo "==> Building (make -j${MAKE_JOBS}) ..."
 make -j"${MAKE_JOBS}"
-
-# --- Install ----------------------------------------------------------------------
 echo "==> Installing ..."
 make install
 
-# --- Locate libnode.so -------------------------------------------------------------
+# --- Locate libnode.so ----------------------------------------------------------
 LIBNODE=""
-for d in \
-    "${INSTALL_PREFIX}/lib" \
-    "${NODE_DIR}/out/Release/lib.target" \
-    "${NODE_DIR}/out/Release"; do
+for d in "${INSTALL_PREFIX}/lib" "${NODE_SRC}/out/Release/lib.target" "${NODE_SRC}/out/Release"; do
     for f in "${d}"/libnode.so*; do
         [ -e "${f}" ] || continue
-        LIBNODE="${f}"
-        echo "    Found: ${LIBNODE} ($(du -h "${LIBNODE}" | cut -f1))"
-        break 2
+        LIBNODE="${f}"; break 2
     done
 done
-if [ -z "${LIBNODE}" ]; then
-    echo "ERROR: libnode.so not found"
-    exit 1
-fi
+[ -n "${LIBNODE}" ] || { echo "ERROR: libnode.so not found"; exit 1; }
+echo "==> libnode.so: ${LIBNODE} ($(du -h "${LIBNODE}" | cut -f1))"
 
-# --- Strip --------------------------------------------------------------------------
+# --- Strip ----------------------------------------------------------------------
 echo "==> Stripping ..."
 "${LLVM_DIR}/bin/llvm-strip" "${LIBNODE}" || echo "    (strip failed, keeping unstripped)"
 
-# --- Self-sign -----------------------------------------------------------------------
-echo "==> Self-signing ..."
-BINSIGN_JAR="${SDK_DIR}/toolchains/lib/binary-sign-tool.jar"
-if [ -f "${BINSIGN_JAR}" ]; then
-    SIGNED_TMP="$(mktemp).signed"
-    if java -jar "${BINSIGN_JAR}" sign \
-        -inFile "${LIBNODE}" \
-        -outFile "${SIGNED_TMP}" \
-        -selfSign 1 2>/dev/null; then
-        mv -f "${SIGNED_TMP}" "${LIBNODE}"
-        echo "    Signed"
-    else
-        echo "    (self-sign failed, shipping unsigned)"
-        rm -f "${SIGNED_TMP}"
-    fi
-else
-    echo "    (binary-sign-tool.jar not found, skipping)"
-fi
-
-# --- Output ---------------------------------------------------------------------------
-OUT_FILE="${OUTPUT_DIR}/libnode-${ARCH}.so"
-cp "${LIBNODE}" "${OUT_FILE}"
-echo ""
-echo "==> Build complete!"
-echo "    Output: ${OUT_FILE}"
-echo "    $(du -h "${OUT_FILE}" | cut -f1)  $(file "${OUT_FILE}" | cut -d: -f2)"
+# --- Output ---------------------------------------------------------------------
+cp "${LIBNODE}" "${OUT_DIR}/libnode-${ARCH}.so"
+echo "==> Output: ${OUT_DIR}/libnode-${ARCH}.so ($(du -h "${OUT_DIR}/libnode-${ARCH}.so" | cut -f1))"
+file "${OUT_DIR}/libnode-${ARCH}.so"

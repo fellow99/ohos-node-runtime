@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       node_version:
-        description: "Node.js version (e.g. 24.2.0)"
+        description: "Node.js version (without leading v), e.g. 24.2.0"
         required: true
         default: "24.2.0"
         type: string
@@ -17,6 +17,12 @@ on:
           - arm64
           - x64
           - both
+      llvm_url:
+        description: "Pinned OpenHarmony LLVM-19 daily-build tarball URL"
+        required: true
+        # Daily build 20261024 (contains llvm-linux-x86_64 + ohos-sysroot + libcxx-ndk)
+        default: "https://cidownload.openharmony.cn/version/Daily_Version/LLVM-19/20261024_061421/version-Daily_Version-LLVM-19-20261024_061421-LLVM-19.tar.gz"
+        type: string
 
 permissions:
   contents: write
@@ -31,6 +37,8 @@ jobs:
         arch: ${{ inputs.arch == 'both' && fromJSON('["arm64","x64"]') || fromJSON(format('["{0}"]', inputs.arch)) }}
     env:
       NODE_VERSION: ${{ inputs.node_version }}
+      LLVM_URL: ${{ inputs.llvm_url }}
+      BUILD_DIR: ${{ github.workspace }}/.build
     steps:
       - uses: actions/checkout@v4
 
@@ -38,81 +46,52 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential curl file make python3 \
-            unzip xz-utils jq python3-pip
+            tar xz-utils jq
 
-      - name: Set up Java 17 (for binary-sign-tool)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      # --- OHOS SDK + LLVM-19 (cached) ------------------------------------------
-      - name: Cache OHOS SDK + LLVM-19
-        id: cache-ohos
+      # --- LLVM-19 toolchain (cache the 700MB tarball; extract fresh each run) ---
+      - name: Cache LLVM-19 tarball
+        id: cache-llvm
         uses: actions/cache@v4
         with:
-          path: |
-            .build/ohos-sdk
-            .build/llvm-19
-          key: ohos-sdk-llvm19-v1
+          path: .build/LLVM-19.tar.gz
+          key: llvm19-${{ inputs.llvm_url }}
 
-      - name: Download OpenHarmony SDK + LLVM-19
-        if: steps.cache-ohos.outputs.cache-hit != 'true'
+      - name: Connectivity check
         run: |
-          mkdir -p .build
-          cd .build
+          echo "== Probing cidownload.openharmony.cn =="
+          curl -sSIL --max-time 40 "$LLVM_URL" -o /dev/null -w 'http=%{http_code} size=%{size_download} time=%{time_total}s\n' || true
 
-          query_component() {
-            local component="$1"
-            for i in 1 2 3 4 5; do
-              echo "Querying ${component} (attempt ${i}/5)..."
-              local url
-              url=$(curl -fsSL --connect-timeout 30 --max-time 120 \
-                'https://dcp.openharmony.cn/api/daily_build/build/list/component' \
-                -H 'Accept: application/json, text/plain, */*' \
-                -H 'Content-Type: application/json' \
-                --data-raw '{"projectName":"openharmony","branch":"master","pageNum":1,"pageSize":10,"deviceLevel":"","component":"'"${component}"'","type":1,"startTime":"2025080100000000","endTime":"20990101235959","sortType":"","sortField":"","hardwareBoard":"","buildStatus":"success","buildFailReason":"","withDomain":1}' \
-                2>/dev/null | jq -r ".data.list.dataList[0].obsPath" 2>/dev/null)
-              if [ -n "$url" ] && [ "$url" != "null" ]; then
-                echo "$url"
-                return 0
-              fi
-              echo "Attempt ${i} failed, retrying in 15s..."
-              sleep 15
-            done
-            echo "ERROR: Failed to query ${component}" >&2
-            return 1
-          }
+      - name: Download LLVM-19
+        if: steps.cache-llvm.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$BUILD_DIR"
+          echo "Downloading $LLVM_URL (~700MB) ..."
+          curl -fL --retry 5 --retry-delay 10 --connect-timeout 30 \
+            --max-time 1800 -o "$BUILD_DIR/LLVM-19.tar.gz" "$LLVM_URL"
+          ls -lh "$BUILD_DIR/LLVM-19.tar.gz"
 
-          # OHOS SDK
-          echo "==> Downloading OpenHarmony SDK..."
-          SDK_URL=$(query_component "ohos-sdk-public")
-          curl -fL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 600 \
-            -o ohos-sdk-public.tar.gz "$SDK_URL"
-          tar -zxf ohos-sdk-public.tar.gz
-          rm -rf daily_build.log manifest_tag.xml ohos-sdk/windows ohos-sdk/ohos
-          cd ohos-sdk/linux
-          unzip -q toolchains-*.zip
-          rm -rf *.zip
-          cd ../..
-          rm -f ohos-sdk-public.tar.gz
-          echo "    OHOS SDK ready"
-
-          # LLVM-19
-          echo "==> Downloading LLVM-19..."
-          LLVM_URL=$(query_component "LLVM-19")
-          curl -fL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 600 \
-            -o LLVM-19.tar.gz "$LLVM_URL"
-          mkdir -p llvm-19
-          tar -zxf LLVM-19.tar.gz -C llvm-19
+      - name: Extract LLVM-19 (clang + sysroot + libc++)
+        run: |
+          cd "$BUILD_DIR"
+          mkdir -p llvm19-pkg llvm-19
+          tar -zxf LLVM-19.tar.gz -C llvm19-pkg
+          echo "== Outer package contents =="
+          ls -lh llvm19-pkg/
           cd llvm-19
-          tar -zxf llvm-linux-x86_64.tar.gz
-          tar -zxf ohos-sysroot.tar.gz
-          cd ..
-          rm -f LLVM-19.tar.gz
-          echo "    LLVM-19 ready"
+          tar -zxf ../llvm19-pkg/llvm-linux-x86_64.tar.gz
+          if [ -f ../llvm19-pkg/ohos-sysroot.tar.gz ]; then
+            tar -zxf ../llvm19-pkg/ohos-sysroot.tar.gz
+          fi
+          echo "== clang wrappers =="
+          ls llvm/bin/ | grep -E 'unknown-linux-ohos-clang$|unknown-linux-ohos-clang\+\+$' | head
+          # libc++_shared.so from the NDK libcxx package
+          if [ -f ../llvm19-pkg/libcxx-ndk-linux-aarch64.tar.gz ]; then
+            mkdir -p libcxx-ndk
+            tar -zxf ../llvm19-pkg/libcxx-ndk-linux-aarch64.tar.gz -C libcxx-ndk
+            find libcxx-ndk -name 'libc++_shared.so' | head
+          fi
 
-      # --- Node.js source (cached per version) ----------------------------------
+      # --- Node.js source -------------------------------------------------------
       - name: Cache Node.js source
         id: cache-node
         uses: actions/cache@v4
@@ -123,67 +102,86 @@ jobs:
       - name: Download Node.js source
         if: steps.cache-node.outputs.cache-hit != 'true'
         run: |
-          mkdir -p .build
-          cd .build
-          echo "==> Downloading Node.js v${NODE_VERSION}..."
-          curl -fL --retry 5 --retry-delay 10 \
+          cd "$BUILD_DIR"
+          echo "== Downloading Node.js v${NODE_VERSION} =="
+          curl -fL --retry 5 --retry-delay 10 --max-time 600 \
             -o node-src.tar.gz \
             "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}.tar.gz"
           tar -zxf node-src.tar.gz
           rm -f node-src.tar.gz
-          echo "    Node.js source ready"
 
-      # --- Build -----------------------------------------------------------------
+      # --- Build ----------------------------------------------------------------
       - name: Build libnode.so
-        env:
-          OUTPUT_DIR: ${{ github.workspace }}/dist
         run: |
           chmod +x scripts/build-node-ohos.sh
-          ./scripts/build-node-ohos.sh "${NODE_VERSION}" "${{ matrix.arch }}" "$(nproc)"
+          ./scripts/build-node-ohos.sh \
+            "${NODE_VERSION}" \
+            "${{ matrix.arch }}" \
+            "$BUILD_DIR/llvm-19/llvm" \
+            "$BUILD_DIR/node-v${NODE_VERSION}" \
+            "$GITHUB_WORKSPACE/dist"
 
-      # --- Verify -----------------------------------------------------------------
+      # --- Bundle libc++_shared.so for arm64 ------------------------------------
+      - name: Bundle libc++_shared.so
+        if: matrix.arch == 'arm64'
+        run: |
+          LIBCXX=$(find "$BUILD_DIR/llvm-19/libcxx-ndk" -name 'libc++_shared.so' | head -1)
+          if [ -n "$LIBCXX" ]; then
+            cp "$LIBCXX" dist/libc++_shared.so
+            echo "Bundled: $LIBCXX"
+            ls -lh dist/libc++_shared.so
+          else
+            echo "WARNING: libc++_shared.so not found in libcxx-ndk package"
+          fi
+
+      # --- Verify ---------------------------------------------------------------
       - name: Verify build output
         run: |
           SO="dist/libnode-${{ matrix.arch }}.so"
-          echo "==> ${SO}"
-          file "${SO}"
-          ls -lh "${SO}"
+          file "$SO"
+          ls -lh dist/
           echo ""
-          echo "==> ELF check (must be ET_DYN, no PT_INTERP)..."
-          python3 scripts/verify-libnode.py "${SO}"
+          echo "== ELF gate (ET_DYN, no PT_INTERP) =="
+          python3 scripts/verify-libnode.py "$SO"
           echo ""
-          echo "==> Check node::Start export..."
-          nm -D "${SO}" | grep "node5Start" && echo "    node::Start exported" || { echo "    node::Start NOT found"; exit 1; }
+          echo "== node::Start export =="
+          nm -D "$SO" | grep "node5Start"
+          echo ""
+          echo "== DT_NEEDED =="
+          readelf -d "$SO" | grep NEEDED
 
-      # --- Package -----------------------------------------------------------------
-      - name: Package output
+      # --- Checksums ------------------------------------------------------------
+      - name: Compute checksums
         run: |
-          SHA=$(sha256sum "dist/libnode-${{ matrix.arch }}.so" | awk '{print $1}')
-          SIZE=$(stat -c%s "dist/libnode-${{ matrix.arch }}.so")
-          echo "sha256=${SHA}" >> "$GITHUB_ENV"
-          echo "size=${SIZE}" >> "$GITHUB_ENV"
-          echo ""
-          echo "libnode-${{ matrix.arch }}.so"
-          echo "  SHA-256: ${SHA}"
-          echo "  Size:    ${SIZE} bytes"
+          cd dist
+          sha256sum libnode-${{ matrix.arch }}.so > libnode-${{ matrix.arch }}.so.sha256
+          [ -f libc++_shared.so ] && sha256sum libc++_shared.so > libc++_shared.so.sha256 || true
+          cat libnode-${{ matrix.arch }}.so.sha256
 
-      # --- Upload artifact -----------------------------------------------------------
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: libnode-ohos-${{ env.NODE_VERSION }}-${{ matrix.arch }}
-          path: dist/libnode-${{ matrix.arch }}.so
+          path: |
+            dist/libnode-${{ matrix.arch }}.so
+            dist/libnode-${{ matrix.arch }}.so.sha256
+            dist/libc++_shared.so
+            dist/libc++_shared.so.sha256
           if-no-files-found: error
 
-      # --- Publish GitHub Release ----------------------------------------------------
+      # --- GitHub Release --------------------------------------------------------
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${NODE_VERSION}-${{ matrix.arch }}"
-          gh release create "${TAG}" \
-            "dist/libnode-${{ matrix.arch }}.so" \
-            --title "libnode ${NODE_VERSION} for OpenHarmony ${{ matrix.arch }}" \
-            --notes "SHA-256: ${sha256}\nSize: ${size} bytes\n\nBuilt from Node.js v${NODE_VERSION} with OHOS SDK + LLVM-19.\n\`\`\`--shared --cross-compiling --openssl-no-asm --dest-os=openharmony\`\`\`" \
-            --prerelease \
-            || echo "Release ${TAG} already exists, skipping"
+          TAG="v${NODE_VERSION}-ohos-${{ matrix.arch }}"
+          FILES="dist/libnode-${{ matrix.arch }}.so dist/libnode-${{ matrix.arch }}.so.sha256"
+          [ -f dist/libc++_shared.so ] && FILES="$FILES dist/libc++_shared.so dist/libc++_shared.so.sha256"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $FILES --clobber
+          else
+            gh release create "$TAG" $FILES \
+              --title "libnode ${NODE_VERSION} for OpenHarmony ${{ matrix.arch }}" \
+              --notes "Shared libnode.so built from Node.js v${NODE_VERSION} with OpenHarmony LLVM-19 (--shared --cross-compiling --openssl-no-asm --dest-os=openharmony)." \
+              --prerelease
+          fi

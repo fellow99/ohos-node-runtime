@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ inputs.arch == 'both' && ['arm64', 'x64'] || [inputs.arch] }}
+        arch: ${{ inputs.arch == 'both' && fromJSON('["arm64","x64"]') || fromJSON(format('["{0}"]', inputs.arch)) }}
     env:
       NODE_VERSION: ${{ inputs.node_version }}
     steps:

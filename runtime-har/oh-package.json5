@@ -12,7 +12,7 @@
   },
   "license": "MIT",
   "sourceType": "open",
-  "repository": "https://github.com/fellow99/ohos-node-bridge",
+  "repository": "https://github.com/fellow99/ohos-node-runtime",
   "keywords": [
     "nodejs",
     "runtime",

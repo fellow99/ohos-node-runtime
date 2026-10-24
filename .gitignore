@@ -1,0 +1,11 @@
+/build/
+/.preview/
+/.test/
+/node_modules/
+/.idea/
+**/build/
+/.hvigor/
+# 二进制不入库（由 provision 投放）
+runtime-har/src/main/libs/**/*.so
+/runtime/node-*/
+!/runtime/node-*/PROVENANCE.md

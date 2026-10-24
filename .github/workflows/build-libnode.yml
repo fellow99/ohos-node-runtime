@@ -150,34 +150,10 @@ jobs:
           ls -lh "${SO}"
           echo ""
           echo "==> ELF check (must be ET_DYN, no PT_INTERP)..."
-          python3 - "${SO}" <<'PYEOF'
-import struct, sys
-p = sys.argv[1]
-d = open(p, 'rb').read(64)
-assert d[:4] == b'\x7fELF', "Not an ELF"
-le = d[5] == 1
-fmt = '<' if le else '>'
-etype   = struct.unpack(fmt + 'H', d[16:18])[0]
-machine = struct.unpack(fmt + 'H', d[18:20])[0]
-e_phoff = struct.unpack(fmt + 'Q', d[32:40])[0]
-phentsize = struct.unpack(fmt + 'H', d[54:56])[0]
-phnum   = struct.unpack(fmt + 'H', d[56:58])[0]
-interp = False
-with open(p, 'rb') as f:
-    for i in range(phnum):
-        f.seek(e_phoff + i * phentsize)
-        ph = f.read(phentsize)
-        if struct.unpack(fmt + 'I', ph[0:4])[0] == 3:
-            interp = True
-            break
-assert etype == 3, f"Expected ET_DYN(3), got {etype}"
-assert not interp, "PT_INTERP found — this is a PIE executable, not a shared library!"
-arch_names = {183: 'AArch64', 62: 'x86-64'}
-print(f"    ET_DYN ✓  machine={arch_names.get(machine, machine)}  PT_INTERP=none ✓")
-PYEOF
+          python3 scripts/verify-libnode.py "${SO}"
           echo ""
           echo "==> Check node::Start export..."
-          nm -D "${SO}" | grep "node5Start" && echo "    node::Start exported ✓" || { echo "    ✗ node::Start NOT found"; exit 1; }
+          nm -D "${SO}" | grep "node5Start" && echo "    node::Start exported" || { echo "    node::Start NOT found"; exit 1; }
 
       # --- Package -----------------------------------------------------------------
       - name: Package output

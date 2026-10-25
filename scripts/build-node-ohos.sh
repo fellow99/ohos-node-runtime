@@ -87,6 +87,20 @@ else
     echo "==> gyp make.py already knows openharmony — skipping 0001 patch"
 fi
 
+# Node v22.x (up to at least v22.23.4) compiles the whole core at gnu++17 via
+# common.gypi and bumps *core* targets to gnu++20 in common_node.gypi — but its
+# OS whitelist lists android and not openharmony. Result: deps/ncrypto (which
+# uses C++20: operator<=>, abbreviated function templates) is built at gnu++17
+# and fails with "'auto' not allowed in function prototype". Add openharmony
+# to the whitelist when the file exists and lacks it. v24+ is gnu++20 globally
+# (no common_node.gypi), so this is a no-op there.
+COMMON_NODE_GYPI="${NODE_SRC}/common_node.gypi"
+if [ -f "${COMMON_NODE_GYPI}" ] && ! grep -q 'openharmony' "${COMMON_NODE_GYPI}"; then
+    echo "==> Patching common_node.gypi (enable gnu++20 for openharmony core targets)"
+    sed -i 's/os400 cloudabi"/os400 cloudabi openharmony"/' "${COMMON_NODE_GYPI}"
+    grep -n 'openharmony' "${COMMON_NODE_GYPI}"
+fi
+
 # Patch: maglev-assembler.h — move set_allow_* declarations out of #ifdef DEBUG.
 # Only needed when some caller compiles those setters in RELEASE (NDEBUG) builds;
 # early v24.2.0 had such a call site. Newer V8 wraps every call in #ifdef DEBUG,

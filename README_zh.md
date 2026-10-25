@@ -30,8 +30,8 @@ ohpm install @fellow99/node-runtime@24.2.0
 | ABI | **arm64-v8a**（AArch64） |
 | 设备 | `2in1` / `tablet`（不做 phone） |
 | 二进制大小 | 126,809,264 B（120.9 MiB） |
-| SHA-256 | `3019bf5f9a279d98a87606fc13c53b0e797b6a50cf174f8a1243d880c71151a1` |
-| 上游来源 | [`electerm/ohos-node-shared`](https://github.com/electerm/ohos-node-shared) @ `ohos-node-shared-v24.2.0` |
+| SHA-256 | `92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b` |
+| 构建方 | 本仓库 GitHub Actions（自建，run `40147924234`）→ Release `v24.2.0-ohos-arm64` |
 | 许可 | Node.js MIT + 构建脚本 MIT |
 
 本包**不含 ArkTS API**，只提供：
@@ -135,12 +135,15 @@ ohpm publish runtime-har/build/default/outputs/default/runtimehar.har
 
 ## 二进制来源与门禁
 
-当前 v24.2.0 的 `libnode.so` 基于
-[`electerm/ohos-node-shared`](https://github.com/electerm/ohos-node-shared) 构建：
+自 2026-10-25 起，v24.2.0 的 `libnode.so` 由本仓库 GitHub Actions workflow
+（`scripts/build-node-ohos.sh`，run `40147924234`）**自建**：用 OpenHarmony LLVM-19，从 Node.js
+官方 v24.2.0 tarball 交叉编译，发布到 Release `v24.2.0-ohos-arm64`。此前使用已设备验证的
+`electerm/ohos-node-shared` 预编译产物（指纹保留在 `runtime.lock.json#previousSource`）。
 
-- 真正的**共享库**（`ET_DYN` + `PT_INTERP=0`），可直接 `dlopen`——不是 PIE 可执行文件
-  （PIE 的 local-exec TLS 会别名到宿主应用的 TLS，导致 V8 在首次堆分配时即崩溃）
-- 导出进程内启动 Node 所必需的入口 `node::Start`
+构建产出真正的**共享库**（`ET_DYN` + `PT_INTERP=0`），可直接 `dlopen`——不是 PIE 可执行文件
+（PIE 的 local-exec TLS 会别名到宿主应用 TLS，导致 V8 在首次堆分配时崩溃）：
+
+- 导出进程内入口 `node::Start`
 - 内嵌 ICU 与 V8 snapshot
 - configure 参数：`--shared --cross-compiling --openssl-no-asm --v8-disable-temporal-support`
 

@@ -12,7 +12,7 @@
 export const NODE_VERSION: string = '24.2.0';
 export const NODE_MODULE_VERSION: number = 137;
 export const ABI: string = 'arm64-v8a';
-export const LIB_SHA256: string = '3019bf5f9a279d98a87606fc13c53b0e797b6a50cf174f8a1243d880c71151a1';
+export const LIB_SHA256: string = '92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b';
 export const LIB_SIZE: number = 126809264;
 export const LIB_DEPLOY_NAME: string = 'libnode.so';
 

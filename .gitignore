@@ -5,7 +5,9 @@
 /.idea/
 **/build/
 /.hvigor/
-# 二进制不入库（由 provision 投放）
-runtime-har/src/main/libs/**/*.so
+# 二进制不入库（由 provision 投放；规范路径 runtime-har/libs/<abi>/）
+runtime-har/libs/
+# hvigor 生成物
+**/BuildProfile.ets
 /runtime/node-*/
 !/runtime/node-*/PROVENANCE.md

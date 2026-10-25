@@ -36,7 +36,7 @@ runtime/
 
 | 版本 | ABI | 文件 | 大小 | SHA-256（前 16 位） | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| v24.2.0 | arm64-v8a | `node-v24.2.0/libnode-arm64.so` | 126,809,264 B (120.9 MiB) | `3019bf5f9a279d98…` | ✅ 锁定（active） |
+| v24.2.0 | arm64-v8a | `node-v24.2.0/libnode-arm64.so` | 126,809,264 B (120.9 MiB) | `92e0ad87d9c72698…` | ✅ 锁定（active，自建） |
 
 完整哈希见 `SHA256SUMS` 与 `node-v24.2.0/PROVENANCE.md`。
 
@@ -99,7 +99,8 @@ NODE_USE_ENV_PROXY=1 node tools/provision.mjs --download --out <dir>
 ## 5. 许可与合规
 
 - Node.js 本体：MIT（+ 其依赖各自的许可，详见上游 `LICENSE`）；
-- 交叉编译脚本（`electerm/ohos-node-shared`）：MIT；
+- Node.js 本体：MIT（+ 其依赖各自的许可，详见上游 `LICENSE`）；
+- 交叉编译脚本与 workflow：本仓库原创，MIT；
 - 本目录下的二进制**随其上游许可分发**，不额外附加条款；对外分发时保留本节说明。
 
 `libc++_shared.so` **不放在本目录**：它属于 ohos-sdk 交付物，由 `provision.mjs` 在投放时

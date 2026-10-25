@@ -12,7 +12,7 @@
       "file": "libnode-arm64.so",
       "deployAs": "libnode.so",
       "size": 126809264,
-      "sha256": "3019bf5f9a279d98a87606fc13c53b0e797b6a50cf174f8a1243d880c71151a1",
+      "sha256": "92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b",
       "soname": "libnode.so.137",
       "needsLibcxx": true,
       "embeds": {
@@ -25,23 +25,31 @@
       },
       "signed": {
         "codesign": false,
-        "note": "上游资产无 .codesign，仅有 .note.ohos.ident；HAP 内原生库不需要 .codesign（真机实测，见工程规划 §D.6）。若需独立分发，用 tools/ohos-selfsign.mjs add-section + sign 自签。"
+        "hasOhosIdent": true,
+        "note": "自建产物无 .codesign，仅有 .note.ohos.ident（OHOS clang 自带）；HAP 内原生库不需要 .codesign（真机实测，见工程规划 §D.6）。若需独立分发，用 tools/ohos-selfsign.mjs add-section + sign 自签。"
       },
       "source": {
-        "kind": "github-release",
+        "kind": "self-built-github-actions",
+        "repo": "fellow99/ohos-node-runtime",
+        "workflow": ".github/workflows/build-libnode.yml",
+        "runId": "40147924234",
+        "release": {
+          "tag": "v24.2.0-ohos-arm64",
+          "asset": "libnode-arm64.so",
+          "url": "https://github.com/fellow99/ohos-node-runtime/releases/download/v24.2.0-ohos-arm64/libnode-arm64.so"
+        },
+        "toolchain": "OpenHarmony LLVM-19 daily build 20261024 (clang + ohos-sysroot + libcxx-ndk), ubuntu-24.04 runner",
+        "nodeSource": "https://nodejs.org/dist/v24.2.0/node-v24.2.0.tar.gz",
+        "license": [
+          "Node.js (MIT)"
+        ],
+        "builtWith": "LLVM-19; ./configure --shared --cross-compiling --openssl-no-asm --dest-os=openharmony --dest-cpu=arm64 --v8-disable-temporal-support; patches: 0001 gyp make generator + maglev-assembler DEBUG guard; CFLAGS -fno-emulated-tls -DNDEBUG; llvm-strip"
+      },
+      "previousSource": {
+        "note": "2026-10-25 前使用 electerm 预编译产物（已设备验证），切换为自建前的参照",
         "repo": "electerm/ohos-node-shared",
         "tag": "ohos-node-shared-v24.2.0",
-        "asset": "libnode-arm64.so",
-        "url": "https://github.com/electerm/ohos-node-shared/releases/download/ohos-node-shared-v24.2.0/libnode-arm64.so",
-        "license": [
-          "Node.js (MIT)",
-          "build scripts (MIT, electerm/ohos-node-shared)"
-        ],
-        "builtWith": "OHOS SDK + LLVM-19; ./configure --shared --cross-compiling --openssl-no-asm --v8-disable-temporal-support"
-      },
-      "mirror": {
-        "kind": null,
-        "note": "暂无镜像（无制品库；公开镜像 Release 待建，见 openItems）"
+        "sha256": "3019bf5f9a279d98a87606fc13c53b0e797b6a50cf174f8a1243d880c71151a1"
       },
       "gates": {
         "typeDyn": true,
@@ -52,9 +60,10 @@
         "sha256Match": true,
         "versionGeq2219": true
       },
-      "verifiedOn": "2026-10-16",
-      "verifiedDevice": "HAD-W24 / 7.0.0.107(SP7C00E100R13P5) / API 26 / OpenHarmony-7.0.0.105 / arm64-v8a",
-      "verifiedNotes": "进程内 dlopen + node::Start 跑通（--jitless 轮次）；无 ACL 时不带 --jitless 即 SIGTRAP（平台前置，与产物无关）。⚠️ 2026-10-17 更正：verifiedDevice 原记录为历史记录值「HAD-W32 / HarmonyOS 6.1.0 / API 26 / arm64-v8a」（另一台参考设备/旧系统），本轮审计设备自报 HAD-W24 / 7.0.0.107(SP7C00E100R13P5) / API 26 / OpenHarmony-7.0.0.105（param get const.product.* + uname -a）；原值保留在此，不静默改写历史",
+      "verifiedOn": null,
+      "verifiedDevice": null,
+      "verifiedNotes": "自建产物（CI run 40147924234）：七项静态 ELF 门禁全过（ET_DYN / PT_INTERP=0 / AArch64 / NEEDED libc++_shared.so+lib.so / 导出 node::Start / SHA-256 / 版本串），SONAME=libnode.so.137。真机验证待做（electerm 同版本产物曾在 HAD-W24 真机通过，见 previousSource 与 docs/002；但新二进制须独立设备验证后才能发布）。",
+      "staticGatesVerifiedOn": "2026-10-25",
       "ohpmPackage": "@fellow99/node-runtime@24.2.0"
     }
   ],
@@ -70,9 +79,9 @@
     "layout": "node-<version>/<上游资产原名>.so + SHA256SUMS（本例：runtime/node-v24.2.0/libnode-arm64.so）；仅 *.so 不入库，README/SHA256SUMS/PROVENANCE 入库"
   },
   "openItems": [
-    "镜像发布：当前无制品库，公开镜像 Release 未建立 ⇒ 第三方（ohpm 使用者）暂时只能按 source.url 自取 + SHA-256 校验；需要公开分发时新建 fellow99/ohos-node-runtime 并回填 mirror。",
-    "自建配方：归档在 docs/000-工程规划.md 附录 D（含 V8 maglev release 补丁 + 自签步骤）；需要非 v24.2.0 版本时启用。",
-    "x86_64（模拟器）：2026-10-16 决策不做（只用真机调试）。"
+    "自建产物真机验证：静态门禁已过，须在 HarmonyOS 真机重跑 probe（dlopen + node::Start + JIT/WASM/worker/fs）通过后才能发布 ohpm 24.2.0。",
+    "新版本（Node 24.x/26）：用 build-libnode.yml 手动触发（node_version + arch），产出后照 PROVENANCE 流程接入；4 核 runner 冷构建约 3.5h，ccache 仅对同版本重试有效，提速可上 self-hosted runner。",
+    "x86_64（模拟器）：2026-10-16 决策不做（只用真机调试）；workflow 已支持 arch=x64/both，需要时可补。"
   ],
   "bridge": {
     "name": "@fellow99/node-bridge",

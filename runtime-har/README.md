@@ -19,7 +19,12 @@ ohpm install @fellow99/node-runtime@24.2.0
 | ABI / 架构 | **arm64-v8a**（AArch64）；**不做** x86_64 |
 | 设备类型 | `2in1` / `tablet`（**不做 phone**） |
 | 包内 `.so` | `libs/arm64-v8a/libnode.so`（126,809,264 B）+ `libc++_shared.so` |
-| SHA-256（libnode.so） | `3019bf5f9a279d98a87606fc13c53b0e797b6a50cf174f8a1243d880c71151a1` |
+| SHA-256（libnode.so） | `92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b`（仓库 HEAD 自建产物；见下注） |
+
+> **发布状态**：ohpm 上的 `24.2.0`（2026-10-22 首发）内是早期 `electerm/ohos-node-shared` 预编译产物
+> （SHA-256 `3019bf5f9a27…`，已设备验证）。仓库 HEAD 已切换为**本仓 GitHub Actions 自建**产物
+> （SHA-256 `92e0ad87…`，静态门禁已过，**真机验证待做**）。因 ohpm 版本不可变，自建产物将随下一个
+> Node 版本或新版本号发布；详见仓库根 `runtime/node-v24.2.0/PROVENANCE.md`。
 
 > **版本号 = Node 版本**（严格一一对应）：`24.2.0` 就是 Node v24.2.0。本包**不跟随** `@fellow99/node-bridge` 的版本号。
 
@@ -69,4 +74,5 @@ import { NODE_VERSION, NODE_MODULE_VERSION, LIB_SHA256 } from '@fellow99/node-ru
   142,089 B / 2,641 行 / **SHA-256 `b58bb782ec115892f61475a6199db165545926d93624ae172f25b7a6e1dafffe`**。
   该文件**汇总了全部内嵌第三方许可全文**（V8 / OpenSSL / ICU / llhttp / zlib / libuv / nghttp2 / c-ares / brotli / undici …）。
   自行复核：`shasum -a 256 oh_modules/@fellow99/node-runtime/LICENSE`。
-- 构建来源：`electerm/ohos-node-shared` @ `ohos-node-shared-v24.2.0`（构建脚本 MIT）。
+- 构建来源（仓库 HEAD）：本仓 GitHub Actions 自建（OpenHarmony LLVM-19 + Node v24.2.0 tarball，run `40147924234`，Release `v24.2.0-ohos-arm64`）。
+- 首发（ohpm `24.2.0`，2026-10-22）：`electerm/ohos-node-shared` @ `ohos-node-shared-v24.2.0`（指纹见 `runtime.lock.json#previousSource`）。

@@ -31,8 +31,8 @@ ohpm install @fellow99/node-runtime@24.2.0
 | ABI | **arm64-v8a** (AArch64) |
 | Devices | `2in1` / `tablet` (no phone) |
 | Binary size | 126,809,264 B (120.9 MiB) |
-| SHA-256 | `3019bf5f9a279d98a87606fc13c53b0e797b6a50cf174f8a1243d880c71151a1` |
-| Upstream source | [`electerm/ohos-node-shared`](https://github.com/electerm/ohos-node-shared) @ `ohos-node-shared-v24.2.0` |
+| SHA-256 | `92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b` |
+| Built by | This repo's GitHub Actions (self-built, run `40147924234`) → release `v24.2.0-ohos-arm64` |
 | License | Node.js MIT + build scripts MIT |
 
 This package has **no ArkTS API**. It only ships:
@@ -138,12 +138,17 @@ ohpm publish runtime-har/build/default/outputs/default/runtimehar.har
 
 ## Binary origin & verification gates
 
-The current v24.2.0 `libnode.so` is built from
-[`electerm/ohos-node-shared`](https://github.com/electerm/ohos-node-shared):
+Since 2026-10-25 the v24.2.0 `libnode.so` is **self-built** by this repo's GitHub
+Actions workflow (`scripts/build-node-ohos.sh`, run `40147924234`) using OpenHarmony
+LLVM-19, cross-compiled from the official Node.js v24.2.0 tarball and published to
+release `v24.2.0-ohos-arm64`. Before that it consumed the device-verified
+`electerm/ohos-node-shared` prebuilt (its fingerprint is kept in
+`runtime.lock.json#previousSource`).
 
-- A true **shared library** (`ET_DYN` + `PT_INTERP=0`) that `dlopen()`s cleanly —
-  not a PIE executable (whose local-exec TLS aliases the host app's TLS and kills
-  V8 on the first heap allocation)
+The build produces a true **shared library** (`ET_DYN` + `PT_INTERP=0`) that
+`dlopen()`s cleanly — not a PIE executable (whose local-exec TLS aliases the host
+app's TLS and kills V8 on the first heap allocation):
+
 - Exports `node::Start`, the required in-process entry point
 - Embeds ICU + the V8 snapshot
 - Configure flags: `--shared --cross-compiling --openssl-no-asm --v8-disable-temporal-support`

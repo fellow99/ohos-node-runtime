@@ -72,20 +72,62 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${NODE_SRC}"
 
 # Patch 0001: gyp make generator — treat openharmony like linux/android for
-# shared-lib link rules. Only needed on early v24.x / v22.x; harmless to skip
-# elsewhere (patch would fail to apply).
-NEED_0001="v24.2.0 v24.3.0 v24.4.0 v24.4.1 v24.5.0 v24.6.0"
-if echo " ${NEED_0001} " | grep -q " ${VERSION} "; then
+# shared-lib/thin-archive link rules (fixes argument-list-too-long). Applied
+# only when the source still has the OLD tuple: upstream gyp merged openharmony
+# by v22.23.x / v24.22.x, where the patch would fail to apply.
+MAKE_PY="${NODE_SRC}/tools/gyp/pylib/gyp/generator/make.py"
+if [ -f "${MAKE_PY}" ] && grep -q '("linux", "android")' "${MAKE_PY}" \
+        && ! grep -q '("linux", "android", "openharmony")' "${MAKE_PY}"; then
     if [ -f "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" ]; then
-        echo "==> Applying 0001-fix-argument-list-too-long.patch"
-        patch -p1 < "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" || echo "    (apply returned non-zero, continuing)"
+        echo "==> Applying 0001-fix-argument-list-too-long.patch (old gyp detected)"
+        patch -p1 --forward < "${SCRIPT_DIR}/0001-fix-argument-list-too-long.patch" \
+            || { echo "ERROR: 0001 patch needed but failed to apply"; exit 1; }
     fi
+else
+    echo "==> gyp make.py already knows openharmony — skipping 0001 patch"
 fi
 
-# Patch: maglev-assembler.h — move set_allow_* declarations out of #ifdef DEBUG
+# Patch: maglev-assembler.h — move set_allow_* declarations out of #ifdef DEBUG.
+# Only needed when some caller compiles those setters in RELEASE (NDEBUG) builds;
+# early v24.2.0 had such a call site. Newer V8 wraps every call in #ifdef DEBUG,
+# so we detect instead of maintaining a version allowlist (fail-safe: on any
+# detector error we apply the patch, which is harmless when unneeded).
 MAGLEV_H="${NODE_SRC}/deps/v8/src/maglev/maglev-assembler.h"
-if [ -f "${MAGLEV_H}" ]; then
-    echo "==> Patching maglev-assembler.h (set_allow_* DEBUG guard)"
+need_maglev_patch() {
+    python3 - "${NODE_SRC}/deps/v8/src" <<'PYEOF'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+calls = re.compile(r'set_allow_(?:allocate|call)\s*\(')
+debug_guard = re.compile(r'^\s*#\s*(?:ifdef\s+DEBUG|if\s+defined\(\s*DEBUG\s*\))\s*$')
+if_re = re.compile(r'^\s*#\s*(if|ifdef|ifndef)\b')
+endif_re = re.compile(r'^\s*#\s*endif\b')
+found = False
+for p in root.rglob('*'):
+    if p.suffix not in ('.cc', '.h') and not p.name.endswith('-inl.h'):
+        continue
+    if p.name in ('maglev-assembler.h', 'maglev-assembler-inl.h'):
+        continue
+    depth = 0
+    try:
+        for line in p.read_text(errors='ignore').splitlines():
+            if debug_guard.match(line):
+                depth += 1
+            elif if_re.match(line):
+                pass  # non-DEBUG conditional: DEBUG depth unchanged
+            if calls.search(line) and depth == 0:
+                print(f'RELEASE CALLER: {p}: {line.strip()}')
+                found = True
+                break
+            if endif_re.match(line) and depth > 0:
+                depth -= 1
+    except OSError:
+        sys.exit(2)
+    if found:
+        break
+sys.exit(1 if found else 0)
+PYEOF
+}
+_apply_maglev() {
     awk '
     /^#ifdef DEBUG$/ {
         save = $0
@@ -106,6 +148,17 @@ if [ -f "${MAGLEV_H}" ]; then
     ' "${MAGLEV_H}" > "${MAGLEV_H}.tmp" && mv "${MAGLEV_H}.tmp" "${MAGLEV_H}"
     grep -q 'bool allow_allocate_ = false;' "${MAGLEV_H}" || \
         sed -i 's/  bool allow_call_ = false;/  bool allow_allocate_ = false;\n  bool allow_call_ = false;/' "${MAGLEV_H}"
+}
+# Decision captured explicitly (avoids $? ambiguity around the if/else above).
+if [ -f "${MAGLEV_H}" ]; then
+    MAGLEV_RC=0
+    need_maglev_patch || MAGLEV_RC=$?
+    if [ "${MAGLEV_RC}" != "0" ]; then
+        echo "==> Applying maglev patch (detector rc=${MAGLEV_RC}: 1=needed, 2=error)"
+        _apply_maglev
+    else
+        echo "==> All set_allow_* callers are DEBUG-only — skipping maglev patch"
+    fi
 fi
 
 # Some early v24/v22 builds error on implicit function declarations under -Werror

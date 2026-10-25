@@ -51,8 +51,16 @@ echo "==> Node source: ${NODE_SRC}"
 [ -f "${NODE_SRC}/configure" ] || { echo "ERROR: ${NODE_SRC}/configure missing"; exit 1; }
 
 # --- Environment ----------------------------------------------------------------
-export CC="${CLANG} -fno-emulated-tls"
-export CXX="${LLVM_DIR}/bin/${CLANG_TRIPLE}-clang++ -fno-emulated-tls"
+# Optional ccache: prefix the cross compiler when ccache is on PATH. gyp invokes
+# the compiler through the shell, so the space-separated form works.
+if command -v ccache >/dev/null 2>&1; then
+    export USE_CCACHE=1
+    export CC="ccache ${CLANG} -fno-emulated-tls"
+    export CXX="ccache ${LLVM_DIR}/bin/${CLANG_TRIPLE}-clang++ -fno-emulated-tls"
+else
+    export CC="${CLANG} -fno-emulated-tls"
+    export CXX="${LLVM_DIR}/bin/${CLANG_TRIPLE}-clang++ -fno-emulated-tls"
+fi
 export CC_host="gcc"
 export CXX_host="g++"
 export CFLAGS="${CFLAGS:-} -DNDEBUG"

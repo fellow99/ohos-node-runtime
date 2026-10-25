@@ -30,7 +30,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +46,31 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential curl file make python3 \
-            tar xz-utils jq
+            tar xz-utils jq ccache
+
+      # Cross-compiling V8 (thousands of Torque-generated CSA TUs + Maglev/TurboFan)
+      # spawns 4 clang++ processes that can peak well above the runner's 16 GB RAM,
+      # causing multi-minute reclaim/swap stalls. Add a 16 GB swapfile on the fast
+      # NVMe temp disk so no TU thrashes (or gets OOM-killed).
+      - name: Add swap space
+        run: |
+          sudo fallocate -l 16G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=16384
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+          df -h /mnt
+
+      # ccache makes re-runs (and retries after timeout) incremental instead of
+      # rebuilding all ~4k objects from zero.
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .build/ccache
+          key: ccache-ohos-${{ inputs.node_version }}-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: |
+            ccache-ohos-${{ inputs.node_version }}-${{ matrix.arch }}-
+            ccache-ohos-${{ inputs.node_version }}-
 
       # --- LLVM-19 toolchain (cache the 700MB tarball; extract fresh each run) ---
       - name: Cache LLVM-19 tarball
@@ -112,14 +136,24 @@ jobs:
 
       # --- Build ----------------------------------------------------------------
       - name: Build libnode.so
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.build/ccache
+          CCACHE_COMPRESS: "1"
+          CCACHE_COMPRESSLEVEL: "6"
+          CCACHE_MAXSIZE: "1500M"
+          CCACHE_SLOPPINESS: "time_macros,include_file_mtime,include_file_ctime,pch_defines"
         run: |
+          ccache --version
+          ccache -z
           chmod +x scripts/build-node-ohos.sh
           ./scripts/build-node-ohos.sh \
             "${NODE_VERSION}" \
             "${{ matrix.arch }}" \
             "$BUILD_DIR/llvm-19/llvm" \
             "$BUILD_DIR/node-v${NODE_VERSION}" \
-            "$GITHUB_WORKSPACE/dist"
+            "$GITHUB_WORKSPACE/dist" \
+            "$(nproc)"
+          ccache -s || true
 
       # --- Bundle libc++_shared.so for arm64 ------------------------------------
       - name: Bundle libc++_shared.so

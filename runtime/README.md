@@ -18,9 +18,15 @@
 runtime/
 ├── README.md                      ← 本文件（入库）
 ├── SHA256SUMS                     ← 全目录校验和（sha256sum -c 可直接用，入库）
-└── node-v24.2.0/
-    ├── libnode-arm64.so           ← 上游资产**原名**，勿改名（锁文件按原名校验；不入库）
-    └── PROVENANCE.md              ← 该版本溯源：URL / 哈希 / 许可 / 门禁 / 真机验证（入库）
+├── node-v22.23.4/
+│   ├── libnode-arm64.so           ← ABI 127 / SONAME libnode.so.127（不入库）
+│   └── PROVENANCE.md
+├── node-v24.2.0/                  ← active
+│   ├── libnode-arm64.so           ← ABI 137 / SONAME libnode.so.137（不入库）
+│   └── PROVENANCE.md
+└── node-v24.22.1/
+    ├── libnode-arm64.so           ← ABI 137 / SONAME libnode.so.137（不入库）
+    └── PROVENANCE.md
 ```
 
 命名约定（新增版本时照抄）：
@@ -36,9 +42,13 @@ runtime/
 
 | 版本 | ABI | 文件 | 大小 | SHA-256（前 16 位） | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| v24.2.0 | arm64-v8a | `node-v24.2.0/libnode-arm64.so` | 126,809,264 B (120.9 MiB) | `92e0ad87d9c72698…` | ✅ 锁定（active，自建） |
+| v24.22.1 | arm64-v8a | `node-v24.22.1/libnode-arm64.so` | 114,488,552 B (109.2 MiB) | `c3aad4381cdfc940…` | 🔒 自建·静态门禁过（真机待验） |
+| v24.2.0 | arm64-v8a | `node-v24.2.0/libnode-arm64.so` | 126,809,264 B (120.9 MiB) | `92e0ad87d9c72698…` | ✅ 锁定（active，自建；ohpm `24.2.0` 内为旧 electerm 产物） |
+| v22.23.4 | arm64-v8a | `node-v22.23.4/libnode-arm64.so` | 121,429,072 B (115.8 MiB) | `ab7c62e5ec40b538…` | 🔒 自建·静态门禁过（真机待验；ABI 127 / SONAME .127） |
 
-完整哈希见 `SHA256SUMS` 与 `node-v24.2.0/PROVENANCE.md`。
+完整哈希见 `SHA256SUMS` 与各 `node-*/PROVENANCE.md`。三份均为本仓 GitHub Actions 自建（release tag
+`v<ver>-ohos-arm64`）；`active` 仍为 v24.2.0（与当前 HAR/ohpm 包一致）。升级 `active` 到新版本需：
+设备 probe 通过 → 改 `runtime.lock.json#active` + `runtime-har/Index.ets` 常量 + `oh-package.json5` 版本 → 出 HAR。
 
 ## 3. 怎么用
 

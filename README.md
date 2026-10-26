@@ -35,6 +35,24 @@ ohpm install @fellow99/node-runtime@24.2.0
 | Built by | This repo's GitHub Actions (self-built, run `40147924234`) → release `v24.2.0-ohos-arm64` |
 | License | Node.js MIT + build scripts MIT |
 
+### Available builds (self-hosted CI prereleases)
+
+All are built by `.github/workflows/build-libnode.yml`; the 7 static ELF gates pass
+(CI + local). **Device verification is still pending** for everything except the
+binary originally shipped in ohpm `24.2.0`; do not republish a new ohpm version until
+the on-device probe passes. Full metadata: [`runtime/README.md`](runtime/README.md).
+
+| Node | ABI / SONAME | Size | GitHub prerelease | ohpm |
+|------|--------------|------|-------------------|------|
+| v24.22.1 (LTS Krypton) | 137 / `libnode.so.137` | 114,488,552 B | [`v24.22.1-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.22.1-ohos-arm64) | _pending device verification_ |
+| v24.2.0 | 137 / `libnode.so.137` | 126,809,264 B | [`v24.2.0-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.2.0-ohos-arm64) | `24.2.0` (electerm binary; repo HEAD is self-built) |
+| v22.23.4 (LTS Jod) | **127** / `libnode.so.127` | 121,429,072 B | [`v22.23.4-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v22.23.4-ohos-arm64) | _pending device verification_ |
+
+The bridge loads `libnode.so` by name via `dlopen` (it never links the SONAME and
+uses only the stable Node-API + `node::Start`), so the **same** bridge binary runs on
+both ABI 127 and 137. A cold build takes ~2.5–3 h on a 4-core GitHub runner (ccache only
+helps same-version retries); use a self-hosted runner to speed it up.
+
 This package has **no ArkTS API**. It only ships:
 
 - `libs/arm64-v8a/libnode.so` — the engine itself (V8/JIT, all built-in modules)

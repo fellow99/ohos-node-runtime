@@ -34,6 +34,22 @@ ohpm install @fellow99/node-runtime@24.2.0
 | 构建方 | 本仓库 GitHub Actions（自建，run `40147924234`）→ Release `v24.2.0-ohos-arm64` |
 | 许可 | Node.js MIT + 构建脚本 MIT |
 
+### 可用自建版本（CI prerelease）
+
+均由 `.github/workflows/build-libnode.yml` 构建，七项静态 ELF 门禁全过（CI + 本机）。除 ohpm
+`24.2.0` 内的原始二进制外，其余**真机验证均待做**，设备 probe 通过前不重新发 ohpm 版本。
+完整元数据见 [`runtime/README.md`](runtime/README.md)。
+
+| Node | ABI / SONAME | 大小 | GitHub prerelease | ohpm |
+|------|--------------|------|-------------------|------|
+| v24.22.1（LTS Krypton） | 137 / `libnode.so.137` | 114,488,552 B | [`v24.22.1-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.22.1-ohos-arm64) | _待真机验证_ |
+| v24.2.0 | 137 / `libnode.so.137` | 126,809,264 B | [`v24.2.0-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.2.0-ohos-arm64) | `24.2.0`（ohpm 内为 electerm 产物；仓库 HEAD 为自建） |
+| v22.23.4（LTS Jod） | **127** / `libnode.so.127` | 121,429,072 B | [`v22.23.4-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v22.23.4-ohos-arm64) | _待真机验证_ |
+
+bridge 以 `dlopen` 按名加载 `libnode.so`（不链 SONAME、仅用稳定 Node-API 与 `node::Start`），
+所以**同一个** bridge 二进制可同时跑 ABI 127 与 137。4 核托管 runner 冷构建约 2.5–3 小时
+（ccache 仅对同版本重试增量有效），频繁出包可挂 self-hosted runner 提速。
+
 本包**不含 ArkTS API**，只提供：
 
 - `libs/arm64-v8a/libnode.so` —— 引擎本体（V8/JIT、全部内置模块）

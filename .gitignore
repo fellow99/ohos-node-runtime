@@ -9,5 +9,5 @@
 runtime-har/libs/
 # hvigor 生成物
 **/BuildProfile.ets
-/runtime/node-*/
+/runtime/node-*/*
 !/runtime/node-*/PROVENANCE.md

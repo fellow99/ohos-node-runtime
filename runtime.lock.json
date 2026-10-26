@@ -65,6 +65,120 @@
       "verifiedNotes": "自建产物（CI run 40147924234）：七项静态 ELF 门禁全过（ET_DYN / PT_INTERP=0 / AArch64 / NEEDED libc++_shared.so+lib.so / 导出 node::Start / SHA-256 / 版本串），SONAME=libnode.so.137。真机验证待做（electerm 同版本产物曾在 HAD-W24 真机通过，见 previousSource 与 docs/002；但新二进制须独立设备验证后才能发布）。",
       "staticGatesVerifiedOn": "2026-10-25",
       "ohpmPackage": "@fellow99/node-runtime@24.2.0"
+    },
+    {
+      "node": "v24.22.1",
+      "nodeModuleVersion": 137,
+      "abi": "arm64-v8a",
+      "file": "libnode-arm64.so",
+      "deployAs": "libnode.so",
+      "size": 114488552,
+      "sha256": "c3aad4381cdfc940db165b7497ebf0d6ad290abf2e5a79ee33db4bfe107724e3",
+      "soname": "libnode.so.137",
+      "needsLibcxx": true,
+      "embeds": {
+        "icu": true,
+        "v8Snapshot": true
+      },
+      "flags": {
+        "exposeInternals": true,
+        "emitJitless": true,
+        "v8DisableTemporalSupport": false
+      },
+      "signed": {
+        "codesign": false,
+        "hasOhosIdent": true,
+        "note": "自建产物无 .codesign，仅 .note.ohos.ident；HAP 内原生库不需要。"
+      },
+      "source": {
+        "kind": "self-built-github-actions",
+        "repo": "fellow99/ohos-node-runtime",
+        "workflow": ".github/workflows/build-libnode.yml",
+        "runId": "40212292303",
+        "release": {
+          "tag": "v24.22.1-ohos-arm64",
+          "asset": "libnode-arm64.so",
+          "url": "https://github.com/fellow99/ohos-node-runtime/releases/download/v24.22.1-ohos-arm64/libnode-arm64.so"
+        },
+        "toolchain": "OpenHarmony LLVM-19 daily build 20261024 (clang + ohos-sysroot + libcxx-ndk), ubuntu-24.04 runner",
+        "nodeSource": "https://nodejs.org/dist/v24.22.1/node-v24.22.1.tar.gz",
+        "license": [
+          "Node.js (MIT)"
+        ],
+        "builtWith": "LLVM-19; ./configure --shared --cross-compiling --openssl-no-asm --dest-os=openharmony --dest-cpu=arm64; 零源码补丁（gyp make.py 已内建 openharmony，maglev 调用点均在 #ifdef DEBUG 内）；该版本 configure 已无 --v8-disable-temporal-support；CFLAGS -fno-emulated-tls -DNDEBUG; llvm-strip",
+        "buildElapsedMin": 157
+      },
+      "gates": {
+        "typeDyn": true,
+        "ptInterp": 0,
+        "machineAArch64": true,
+        "neededLibcxx": true,
+        "exportsNodeStart": true,
+        "sha256Match": true,
+        "versionGeq2219": true
+      },
+      "verifiedOn": null,
+      "verifiedDevice": null,
+      "verifiedNotes": "自建产物（CI run 40212292303）：七项静态 ELF 门禁 CI + 本机双过（ET_DYN / PT_INTERP=0 / AArch64 / NEEDED libc++_shared.so+lib.so / 导出 node::Start / SHA-256 / 版本串），SONAME=libnode.so.137。真机验证待做；与 v24.2.0 同 ABI(137)，升级为 drop-in，但新二进制须独立设备验证后方能发布 ohpm 24.22.1。",
+      "staticGatesVerifiedOn": "2026-10-26",
+      "ohpmPackage": null
+    },
+    {
+      "node": "v22.23.4",
+      "nodeModuleVersion": 127,
+      "abi": "arm64-v8a",
+      "file": "libnode-arm64.so",
+      "deployAs": "libnode.so",
+      "size": 121429072,
+      "sha256": "ab7c62e5ec40b538d305451be62c0d47a48e8ecd56cb30d96e39673ec267394c",
+      "soname": "libnode.so.127",
+      "needsLibcxx": true,
+      "embeds": {
+        "icu": true,
+        "v8Snapshot": true
+      },
+      "flags": {
+        "exposeInternals": true,
+        "emitJitless": true,
+        "v8DisableTemporalSupport": false
+      },
+      "signed": {
+        "codesign": false,
+        "hasOhosIdent": true,
+        "note": "自建产物无 .codesign，仅 .note.ohos.ident；HAP 内原生库不需要。"
+      },
+      "source": {
+        "kind": "self-built-github-actions",
+        "repo": "fellow99/ohos-node-runtime",
+        "workflow": ".github/workflows/build-libnode.yml",
+        "runId": "40213105923",
+        "release": {
+          "tag": "v22.23.4-ohos-arm64",
+          "asset": "libnode-arm64.so",
+          "url": "https://github.com/fellow99/ohos-node-runtime/releases/download/v22.23.4-ohos-arm64/libnode-arm64.so"
+        },
+        "toolchain": "OpenHarmony LLVM-19 daily build 20261024 (clang + ohos-sysroot + libcxx-ndk), ubuntu-24.04 runner",
+        "nodeSource": "https://nodejs.org/dist/v22.23.4/node-v22.23.4.tar.gz",
+        "license": [
+          "Node.js (MIT; LTS Jod)"
+        ],
+        "builtWith": "LLVM-19; ./configure --shared --cross-compiling --openssl-no-asm --dest-os=openharmony --dest-cpu=arm64；gyp 0001 与 maglev 补丁均跳过（源码已修）；唯一补丁=common_node.gypi 白名单加 openharmony 使核心 target 用 gnu++20（否则 ncrypto 以 gnu++17 编译报 operator<=>/auto 形参错误）；v22 configure 无 --v8-disable-temporal-support；CFLAGS -fno-emulated-tls -DNDEBUG; llvm-strip",
+        "buildElapsedMin": 172
+      },
+      "gates": {
+        "typeDyn": true,
+        "ptInterp": 0,
+        "machineAArch64": true,
+        "neededLibcxx": true,
+        "exportsNodeStart": true,
+        "sha256Match": true,
+        "versionGeq2219": true
+      },
+      "verifiedOn": null,
+      "verifiedDevice": null,
+      "verifiedNotes": "自建产物（CI run 40213105923）：七项静态 ELF 门禁 CI + 本机双过，SONAME=libnode.so.127（ABI 127，Node 22 LTS Jod）。真机验证待做；与 24 线 ABI 不同（127 vs 137），但 bridge 以 dlopen 按名加载、不链 SONAME，故同一 bridge 可载。发布 ohpm 22.23.4 前须设备验证。",
+      "staticGatesVerifiedOn": "2026-10-26",
+      "ohpmPackage": null
     }
   ],
   "libcxx": {

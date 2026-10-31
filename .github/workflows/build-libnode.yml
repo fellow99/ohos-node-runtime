@@ -108,11 +108,20 @@ jobs:
           fi
           echo "== clang wrappers =="
           ls llvm/bin/ | grep -E 'unknown-linux-ohos-clang$|unknown-linux-ohos-clang\+\+$' | head
-          # libc++_shared.so from the NDK libcxx package
-          if [ -f ../llvm19-pkg/libcxx-ndk-linux-aarch64.tar.gz ]; then
+          # libc++_shared.so from the NDK libcxx package. Each tarball is
+          # multi-arch (arm/arm64/x86_64 subdirs), so extract ONLY the one for
+          # the arch we are building to avoid later picking the wrong triple.
+          case "${{ matrix.arch }}" in
+            arm64) LIBCXX_ARCH=aarch64 ;;
+            x64)   LIBCXX_ARCH=x86_64 ;;
+          esac
+          LIBCXX_TGZ="../llvm19-pkg/libcxx-ndk-linux-${LIBCXX_ARCH}.tar.gz"
+          if [ -f "$LIBCXX_TGZ" ]; then
             mkdir -p libcxx-ndk
-            tar -zxf ../llvm19-pkg/libcxx-ndk-linux-aarch64.tar.gz -C libcxx-ndk
+            tar -zxf "$LIBCXX_TGZ" -C libcxx-ndk
             find libcxx-ndk -name 'libc++_shared.so' | head
+          else
+            echo "ERROR: missing $LIBCXX_TGZ" >&2; exit 1
           fi
 
       # --- Node.js source -------------------------------------------------------
@@ -155,18 +164,25 @@ jobs:
             "$(nproc)"
           ccache -s || true
 
-      # --- Bundle libc++_shared.so for arm64 ------------------------------------
+      # --- Bundle the matching-arch libc++_shared.so ----------------------------
+      # The libcxx package ships several triples; selecting by exact triple dir
+      # (not `find | head -1`, whose result depends on FS order) is what keeps
+      # the bundled libc++ from being x86_64/arm32 for an arm64 engine.
       - name: Bundle libc++_shared.so
-        if: matrix.arch == 'arm64'
         run: |
-          LIBCXX=$(find "$BUILD_DIR/llvm-19/libcxx-ndk" -name 'libc++_shared.so' | head -1)
-          if [ -n "$LIBCXX" ]; then
-            cp "$LIBCXX" dist/libc++_shared.so
-            echo "Bundled: $LIBCXX"
-            ls -lh dist/libc++_shared.so
-          else
-            echo "WARNING: libc++_shared.so not found in libcxx-ndk package"
+          case "${{ matrix.arch }}" in
+            arm64) LIBCXX_TRIPLE=aarch64-unknown-linux-ohos ;;
+            x64)   LIBCXX_TRIPLE=x86_64-unknown-linux-ohos ;;
+          esac
+          LIBCXX=$(find "$BUILD_DIR/llvm-19/libcxx-ndk" \
+            -path "*/lib/${LIBCXX_TRIPLE}/libc++_shared.so" | head -1)
+          if [ -z "$LIBCXX" ] || [ ! -f "$LIBCXX" ]; then
+            echo "ERROR: ${LIBCXX_TRIPLE} libc++_shared.so not found in libcxx-ndk" >&2
+            exit 1
           fi
+          cp "$LIBCXX" dist/libc++_shared.so
+          echo "Bundled: $LIBCXX"
+          ls -lh dist/libc++_shared.so
 
       # --- Verify ---------------------------------------------------------------
       - name: Verify build output
@@ -183,6 +199,19 @@ jobs:
           echo ""
           echo "== DT_NEEDED =="
           readelf -d "$SO" | grep NEEDED
+          echo ""
+          echo "== Architecture gate: engine AND libc++ must be ${{ matrix.arch }} =="
+          case "${{ matrix.arch }}" in
+            arm64) MACH=AArch64 ;;
+            x64)   MACH=X86-64 ;;
+          esac
+          readelf -h "$SO" | grep -E "Machine:"
+          readelf -h "$SO" | grep -q "$MACH"
+          if [ ! -f dist/libc++_shared.so ]; then
+            echo "ERROR: dist/libc++_shared.so is missing" >&2; exit 1
+          fi
+          readelf -h dist/libc++_shared.so | grep -E "Machine:"
+          readelf -h dist/libc++_shared.so | grep -q "$MACH"
 
       # --- Checksums ------------------------------------------------------------
       - name: Compute checksums

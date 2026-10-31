@@ -1,6 +1,13 @@
 name: Build libnode for OpenHarmony
 
 on:
+  push:
+    tags:
+      # Release-tag rule aligned with aosp-node-runtime / aosp-node-pty: a bare
+      # "v<node-version>" tag (e.g. v26.13.0) builds the arm64 engine and publishes
+      # a stable GitHub Release named exactly v<node-version>. Architecture-suffixed
+      # prerelease tags (v<x>-ohos-<arch>) are created by manual dispatch, not push.
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       node_version:
@@ -34,13 +41,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ${{ inputs.arch == 'both' && fromJSON('["arm64","x64"]') || fromJSON(format('["{0}"]', inputs.arch)) }}
+        # A pushed bare release tag always builds the single arm64 engine; manual
+        # dispatch keeps the arm64/x64/both choice. Coalesce null on push safely.
+        arch: ${{ github.event_name == 'push' && fromJSON('["arm64"]') || fromJSON((inputs.arch == 'both' && '["arm64","x64"]') || format('["{0}"]', inputs.arch || 'arm64')) }}
     env:
-      NODE_VERSION: ${{ inputs.node_version }}
-      LLVM_URL: ${{ inputs.llvm_url }}
+      LLVM_URL_DEFAULT: https://cidownload.openharmony.cn/version/Daily_Version/LLVM-19/20261024_061421/version-Daily_Version-LLVM-19-20261024_061421-LLVM-19.tar.gz
       BUILD_DIR: ${{ github.workspace }}/.build
     steps:
       - uses: actions/checkout@v4
+
+      # Resolve inputs for BOTH trigger kinds (inputs.* is null on tag push):
+      #   push tag v26.13.0  -> NODE_VERSION=26.13.0, RELEASE_TAG=v26.13.0,    stable
+      #   dispatch 26.13.0  -> NODE_VERSION=26.13.0, RELEASE_TAG=v26.13.0-ohos-<arch>, prerelease
+      - name: Resolve release parameters
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            NODE_VERSION="${GITHUB_REF_NAME#v}"
+            RELEASE_TAG="v${NODE_VERSION}"
+            PRERELEASE=false
+            LLVM_URL="${LLVM_URL_DEFAULT}"
+          else
+            NODE_VERSION="${{ inputs.node_version }}"
+            RELEASE_TAG="v${NODE_VERSION}-ohos-${{ matrix.arch }}"
+            PRERELEASE=true
+            LLVM_URL="${{ inputs.llvm_url }}"
+          fi
+          echo "NODE_VERSION=${NODE_VERSION}" | tee -a "$GITHUB_ENV"
+          echo "RELEASE_TAG=${RELEASE_TAG}" | tee -a "$GITHUB_ENV"
+          echo "PRERELEASE=${PRERELEASE}" | tee -a "$GITHUB_ENV"
+          echo "LLVM_URL=${LLVM_URL}" | tee -a "$GITHUB_ENV"
 
       - name: Install host dependencies
         run: |
@@ -67,10 +97,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/ccache
-          key: ccache-ohos-${{ inputs.node_version }}-${{ matrix.arch }}-${{ github.sha }}
+          key: ccache-ohos-${{ env.NODE_VERSION }}-${{ matrix.arch }}-${{ github.sha }}
           restore-keys: |
-            ccache-ohos-${{ inputs.node_version }}-${{ matrix.arch }}-
-            ccache-ohos-${{ inputs.node_version }}-
+            ccache-ohos-${{ env.NODE_VERSION }}-${{ matrix.arch }}-
+            ccache-ohos-${{ env.NODE_VERSION }}-
 
       # --- LLVM-19 toolchain (cache the 700MB tarball; extract fresh each run) ---
       - name: Cache LLVM-19 tarball
@@ -78,7 +108,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/LLVM-19.tar.gz
-          key: llvm19-${{ inputs.llvm_url }}
+          key: llvm19-${{ env.LLVM_URL }}
 
       - name: Connectivity check
         run: |
@@ -237,20 +267,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${NODE_VERSION}-ohos-${{ matrix.arch }}"
-          FILES="dist/libnode-${{ matrix.arch }}.so dist/libnode-${{ matrix.arch }}.so.sha256"
-          [ -f dist/libc++_shared.so ] && FILES="$FILES dist/libc++_shared.so dist/libc++_shared.so.sha256"
-          NOTES="Shared libnode.so built from Node.js v${NODE_VERSION} with OpenHarmony LLVM-19 (--shared --cross-compiling --openssl-no-asm --dest-os=openharmony)."
+          set -euo pipefail
+          TAG="$RELEASE_TAG"
+          # Bare stable tag (push): arch-qualified asset names so a future x64
+          # build can never clobber arm64; dispatch prerelease keeps the old names.
+          STAGE="$(mktemp -d)"
+          cp "dist/libnode-${{ matrix.arch }}.so" "$STAGE/libnode-${{ matrix.arch }}.so"
+          cp "dist/libnode-${{ matrix.arch }}.so.sha256" "$STAGE/libnode-${{ matrix.arch }}.so.sha256"
+          FILES="$STAGE/libnode-${{ matrix.arch }}.so $STAGE/libnode-${{ matrix.arch }}.so.sha256"
+          if [ -f dist/libc++_shared.so ]; then
+            cp dist/libc++_shared.so "$STAGE/libc++_shared.so"
+            (cd "$STAGE" && sha256sum libc++_shared.so > libc++_shared.so.sha256)
+            FILES="$FILES $STAGE/libc++_shared.so $STAGE/libc++_shared.so.sha256"
+          fi
+          NOTES="Shared libnode.so built from Node.js v${NODE_VERSION} for OpenHarmony ${{ matrix.arch }} with OpenHarmony LLVM-19 (--shared --cross-compiling --openssl-no-asm --dest-os=openharmony)."
           # build-node-ohos.sh passes --v8-disable-temporal-support (Rust Temporal
           # crates have no OHOS cross target), so Node >= 26 engines lack Temporal.
           if [ "${NODE_VERSION%%.*}" -ge 26 ]; then
             NOTES="${NOTES}"$'\n\n'"Note: Temporal is disabled (--v8-disable-temporal-support); this build does not provide the Temporal API."
           fi
+          preflag=(); [ "$PRERELEASE" = "true" ] && preflag=(--prerelease)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" $FILES --clobber
+            gh release edit "$TAG" "${preflag[@]}"
           else
             gh release create "$TAG" $FILES \
-              --title "libnode ${NODE_VERSION} for OpenHarmony ${{ matrix.arch }}" \
+              --title "Node.js v${NODE_VERSION} for OpenHarmony ${{ matrix.arch }}" \
               --notes "$NOTES" \
-              --prerelease
+              "${preflag[@]}"
           fi

@@ -211,11 +211,17 @@ jobs:
           TAG="v${NODE_VERSION}-ohos-${{ matrix.arch }}"
           FILES="dist/libnode-${{ matrix.arch }}.so dist/libnode-${{ matrix.arch }}.so.sha256"
           [ -f dist/libc++_shared.so ] && FILES="$FILES dist/libc++_shared.so dist/libc++_shared.so.sha256"
+          NOTES="Shared libnode.so built from Node.js v${NODE_VERSION} with OpenHarmony LLVM-19 (--shared --cross-compiling --openssl-no-asm --dest-os=openharmony)."
+          # build-node-ohos.sh passes --v8-disable-temporal-support (Rust Temporal
+          # crates have no OHOS cross target), so Node >= 26 engines lack Temporal.
+          if [ "${NODE_VERSION%%.*}" -ge 26 ]; then
+            NOTES="${NOTES}"$'\n\n'"Note: Temporal is disabled (--v8-disable-temporal-support); this build does not provide the Temporal API."
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" $FILES --clobber
           else
             gh release create "$TAG" $FILES \
               --title "libnode ${NODE_VERSION} for OpenHarmony ${{ matrix.arch }}" \
-              --notes "Shared libnode.so built from Node.js v${NODE_VERSION} with OpenHarmony LLVM-19 (--shared --cross-compiling --openssl-no-asm --dest-os=openharmony)." \
+              --notes "$NOTES" \
               --prerelease
           fi

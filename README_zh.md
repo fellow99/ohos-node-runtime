@@ -13,38 +13,50 @@
 
 ---
 
+## 发布版本 —— ohpm（`@fellow99/node-runtime`）
+
+> ⚠️ **只发布 AArch64（arm64-v8a）一个架构**——鸿蒙侧仅面向 `2in1`/`tablet`（不做手机），无 x86 / x86_64 / arm32 包。
+
+| 版本 | 操作系统 | 架构 | 链接 |
+|---|---|---|---|
+| 24.2.0 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/24.2.0 |
+| 22.23.4 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/22.23.4 |
+| 24.22.1 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/24.22.1 |
+| 26.13.0 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/26.13.0 |
+
+---
+
 ## 安装
 
 ```bash
-ohpm install @fellow99/node-runtime@24.2.0
+ohpm install @fellow99/node-runtime@26.13.0
 ```
 
-> 包版本号 **= Node.js 版本号**。Node v24.2.0 → 包 `24.2.0`。
+> 包版本号 **= Node.js 版本号**。Node v26.13.0 → 包 `26.13.0`。
 
 ## 这个包装什么
 
 | 项 | 值 |
 |---|---|
-| Node.js 版本 | **v24.2.0** |
-| `process.versions.modules` | **137**（SONAME `libnode.so.137`） |
+| Node.js 版本 | **v26.13.0** |
+| `process.versions.modules` | **147**（SONAME `libnode.so.147`） |
 | ABI | **arm64-v8a**（AArch64） |
 | 设备 | `2in1` / `tablet`（不做 phone） |
-| 二进制大小 | 126,809,264 B（120.9 MiB） |
-| SHA-256 | `92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b` |
-| 构建方 | 本仓库 GitHub Actions（自建，run `40147924234`）→ Release `v24.2.0-ohos-arm64` |
+| 二进制大小 | 119,868,824 B（114.3 MiB） |
+| SHA-256 | `15e9e17f93d7aafd11b622ac94cccccf6547ee66cf782fdda5a37c8223ecb57b` |
+| 构建方 | 本仓库 GitHub Actions（自建，run `41221254869`）→ 稳定 Release `v26.13.0` |
 | 许可 | Node.js MIT + 构建脚本 MIT |
 
-### 可用自建版本（CI prerelease）
+### 可用构建版本
 
-均由 `.github/workflows/build-libnode.yml` 构建，七项静态 ELF 门禁全过（CI + 本机）。除 ohpm
-`24.2.0` 内的原始二进制外，其余**真机验证均待做**，设备 probe 通过前不重新发 ohpm 版本。
-完整元数据见 [`runtime/README.md`](runtime/README.md)。
+均由 `.github/workflows/build-libnode.yml` 构建，七项静态 ELF 门禁全过（CI + 本机）。完整元数据见 [`runtime/README.md`](runtime/README.md)。
 
-| Node | ABI / SONAME | 大小 | GitHub prerelease | ohpm |
-|------|--------------|------|-------------------|------|
-| v24.22.1（LTS Krypton） | 137 / `libnode.so.137` | 114,488,552 B | [`v24.22.1-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.22.1-ohos-arm64) | _待真机验证_ |
-| v24.2.0 | 137 / `libnode.so.137` | 126,809,264 B | [`v24.2.0-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.2.0-ohos-arm64) | `24.2.0`（ohpm 内为 electerm 产物；仓库 HEAD 为自建） |
-| v22.23.4（LTS Jod） | **127** / `libnode.so.127` | 121,429,072 B | [`v22.23.4-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v22.23.4-ohos-arm64) | _待真机验证_ |
+| Node | ABI / SONAME | 大小 | 发布版本 |
+|------|--------------|------|----------|
+| **v26.13.0（LTS Lithium，Temporal 已禁用）** | **147** / `libnode.so.147` | 119,868,824 B | `26.13.0`（ohpm） |
+| v24.22.1（LTS Krypton） | 137 / `libnode.so.137` | 114,488,552 B | `24.22.1`（ohpm） |
+| v24.2.0 | 137 / `libnode.so.137` | 126,809,264 B | `24.2.0`（ohpm） |
+| v22.23.4（LTS Jod） | **127** / `libnode.so.127` | 121,429,072 B | `22.23.4`（ohpm） |
 
 bridge 以 `dlopen` 按名加载 `libnode.so`（不链 SONAME、仅用稳定 Node-API 与 `node::Start`），
 所以**同一个** bridge 二进制可同时跑 ABI 127 与 137。4 核托管 runner 冷构建约 2.5–3 小时

@@ -14,39 +14,50 @@ as `@fellow99/node-bridge`.
 
 ---
 
+## Releases — ohpm (`@fellow99/node-runtime`)
+
+> ⚠️ **AARCH64 (arm64-v8a) only** — HarmonyOS targets `2in1` / `tablet` (no phone) and there are no x86 / x86_64 / arm32 artifacts.
+
+| Version | OS | Arch | Link |
+|---|---|---|---|
+| 24.2.0 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/24.2.0 |
+| 22.23.4 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/22.23.4 |
+| 24.22.1 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/24.22.1 |
+| 26.13.0 | OpenHarmony | arm64-v8a | https://ohpm.openharmony.cn/#/cn/detail/@fellow99%2Fnode-runtime/v/26.13.0 |
+
+---
+
 ## Installation
 
 ```bash
-ohpm install @fellow99/node-runtime@24.2.0
+ohpm install @fellow99/node-runtime@26.13.0
 ```
 
-> The package version **equals the Node.js version**. Node v24.2.0 → package `24.2.0`.
+> The package version **equals the Node.js version**. Node v26.13.0 → package `26.13.0`.
 
 ## What's in the package
 
 | Item | Value |
 |------|-------|
-| Node.js version | **v24.2.0** |
-| `process.versions.modules` | **137** (SONAME `libnode.so.137`) |
+| Node.js version | **v26.13.0** |
+| `process.versions.modules` | **147** (SONAME `libnode.so.147`) |
 | ABI | **arm64-v8a** (AArch64) |
 | Devices | `2in1` / `tablet` (no phone) |
-| Binary size | 126,809,264 B (120.9 MiB) |
-| SHA-256 | `92e0ad87d9c7269bdbb9fa12ba46d2162b0133a096b67caeee19e07f6060037b` |
-| Built by | This repo's GitHub Actions (self-built, run `40147924234`) → release `v24.2.0-ohos-arm64` |
+| Binary size | 119,868,824 B (114.3 MiB) |
+| SHA-256 | `15e9e17f93d7aafd11b622ac94cccccf6547ee66cf782fdda5a37c8223ecb57b` |
+| Built by | This repo's GitHub Actions (self-built, run `41221254869`) → stable release `v26.13.0` |
 | License | Node.js MIT + build scripts MIT |
 
-### Available builds (self-hosted CI prereleases)
+### Available builds
 
-All are built by `.github/workflows/build-libnode.yml`; the 7 static ELF gates pass
-(CI + local). **Device verification is still pending** for everything except the
-binary originally shipped in ohpm `24.2.0`; do not republish a new ohpm version until
-the on-device probe passes. Full metadata: [`runtime/README.md`](runtime/README.md).
+All are built by `.github/workflows/build-libnode.yml`; the 7 static ELF gates pass (CI + local). Full metadata: [`runtime/README.md`](runtime/README.md).
 
-| Node | ABI / SONAME | Size | GitHub prerelease | ohpm |
-|------|--------------|------|-------------------|------|
-| v24.22.1 (LTS Krypton) | 137 / `libnode.so.137` | 114,488,552 B | [`v24.22.1-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.22.1-ohos-arm64) | _pending device verification_ |
-| v24.2.0 | 137 / `libnode.so.137` | 126,809,264 B | [`v24.2.0-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v24.2.0-ohos-arm64) | `24.2.0` (electerm binary; repo HEAD is self-built) |
-| v22.23.4 (LTS Jod) | **127** / `libnode.so.127` | 121,429,072 B | [`v22.23.4-ohos-arm64`](https://github.com/fellow99/ohos-node-runtime/releases/tag/v22.23.4-ohos-arm64) | _pending device verification_ |
+| Node | ABI / SONAME | Size | Releases |
+|------|--------------|------|----------|
+| **v26.13.0 (LTS Lithium, Temporal disabled)** | **147** / `libnode.so.147` | 119,868,824 B | `26.13.0` (ohpm) |
+| v24.22.1 (LTS Krypton) | 137 / `libnode.so.137` | 114,488,552 B | `24.22.1` (ohpm) |
+| v24.2.0 | 137 / `libnode.so.137` | 126,809,264 B | `24.2.0` (ohpm) |
+| v22.23.4 (LTS Jod) | **127** / `libnode.so.127` | 121,429,072 B | `22.23.4` (ohpm) |
 
 The bridge loads `libnode.so` by name via `dlopen` (it never links the SONAME and
 uses only the stable Node-API + `node::Start`), so the **same** bridge binary runs on

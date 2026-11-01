@@ -11,3 +11,5 @@ runtime-har/libs/
 **/BuildProfile.ets
 /runtime/node-*/*
 !/runtime/node-*/PROVENANCE.md
+# ohpm 发布产物（HAR，不入库）
+/dist-har/

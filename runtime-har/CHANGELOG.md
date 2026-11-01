@@ -1,7 +1,44 @@
 # Changelog
 
-本包的**版本号与 Node 版本严格一致**（`24.2.0` = Node v24.2.0）。
+本包的**版本号与 Node 版本严格一致**（包 `X.Y.Z` = Node v`X.Y.Z`）。
 只记录「包形态」的变化；Node 本体变化一律以新版本号出现（如 Node 24.7.0 ⇒ 包 `24.7.0`）。
+
+## 26.13.0（2026-10-31 发布）
+
+### 新增
+
+- 升级到 Node.js **v26.13.0 LTS（Lithium）**：`libnode.so`（arm64-v8a），119,868,824 B，
+  SHA-256 `15e9e17f93d7aafd11b622ac94cccccf6547ee66cf782fdda5a37c8223ecb57b`，SONAME `libnode.so.147`。
+- `process.versions.modules = 147`（Node 26 跨大版本 ABI，不同于 Node 24 的 137 / Node 22 的 127）。桥接包以裸名 `dlopen("libnode.so")` + 稳定 Node-API 加载，不链 SONAME，故同一 `@fellow99/node-bridge` 二进制可直接承载。
+- 本仓 GitHub Actions 自建（run `41221254869`，稳定 Release `v26.13.0`），OpenHarmony LLVM-19 交叉编译，七项静态 ELF 门禁全过。
+
+### 已知差异
+
+- **Temporal 已禁用**：Node 26 的 Temporal 由 Rust crate（`deps/crates`）构建，上游未提供 Rust→OpenHarmony 交叉 target，故 configure 传 `--v8-disable-temporal-support`。本包**不提供 Temporal API**。
+- 随包 `libc++_shared.so` 改为取自 aarch64 三元组的 libcxx-ndk（修复此前多架构包 `find|head -1` 误取 x86_64/arm32 的问题）。
+- 真机验证待做。
+
+## 24.22.1（2026-10-31 发布）
+
+### 新增
+
+- 升级到 Node.js **v24.22.1**：`libnode.so`（arm64-v8a），114,488,552 B，
+  SHA-256 `c3aad4381cdfc940db165b7497ebf0d6ad290abf2e5a79ee33db4bfe107724e3`，SONAME `libnode.so.137`。
+- `process.versions.modules = 137`（与 Node 24.x 一致，对 24.2.0 为 drop-in 升级）。
+- 本仓 GitHub Actions 自建（run `41221254910`，稳定 Release `v24.22.1`），零源码补丁。
+- 随包 `libc++_shared.so` 修复为 aarch64 架构（此前多架构包误取 x86_64）。
+- 真机验证待做。
+
+## 22.23.4（2026-10-31 发布）
+
+### 新增
+
+- 升级到 Node.js **v22.23.4 LTS（Jod）**：`libnode.so`（arm64-v8a），121,429,072 B，
+  SHA-256 `ab7c62e5ec40b538d305451be62c0d47a48e8ecd56cb30d96e39673ec267394c`，SONAME `libnode.so.127`。
+- `process.versions.modules = 127`（Node 22 LTS Jod，ABI 不同于 Node 24 的 137，但 bridge 以 dlopen 按名加载、不链 SONAME，故同一 bridge 可载）。
+- 本仓 GitHub Actions 自建（run `41221255138`，稳定 Release `v22.23.4`）。
+- 随包 `libc++_shared.so` 修复为 aarch64 架构。
+- 真机验证待做。
 
 ## Unreleased（仓库 HEAD：切换为自建二进制）
 

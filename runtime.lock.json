@@ -1,10 +1,66 @@
 {
   "schema": 1,
   "active": {
-    "node": "v24.2.0",
+    "node": "v26.13.0",
     "abi": "arm64-v8a"
   },
   "runtimes": [
+    {
+      "node": "v26.13.0",
+      "nodeModuleVersion": 147,
+      "abi": "arm64-v8a",
+      "file": "libnode-arm64.so",
+      "deployAs": "libnode.so",
+      "size": 119868824,
+      "sha256": "15e9e17f93d7aafd11b622ac94cccccf6547ee66cf782fdda5a37c8223ecb57b",
+      "soname": "libnode.so.147",
+      "needsLibcxx": true,
+      "embeds": {
+        "icu": true,
+        "v8Snapshot": true
+      },
+      "flags": {
+        "exposeInternals": true,
+        "emitJitless": true,
+        "v8DisableTemporalSupport": true
+      },
+      "signed": {
+        "codesign": false,
+        "hasOhosIdent": true,
+        "note": "自建产物无 .codesign，仅 .note.ohos.ident；HAP 内原生库不需要。"
+      },
+      "source": {
+        "kind": "self-built-github-actions",
+        "repo": "fellow99/ohos-node-runtime",
+        "workflow": ".github/workflows/build-libnode.yml",
+        "runId": "41221254869",
+        "release": {
+          "tag": "v26.13.0",
+          "asset": "libnode-arm64.so",
+          "url": "https://github.com/fellow99/ohos-node-runtime/releases/download/v26.13.0/libnode-arm64.so"
+        },
+        "toolchain": "OpenHarmony LLVM-19 daily build 20261024 (clang + ohos-sysroot + aarch64 libcxx-ndk), ubuntu-24.04 runner",
+        "nodeSource": "https://nodejs.org/dist/v26.13.0/node-v26.13.0.tar.gz",
+        "license": [
+          "Node.js (MIT; LTS Lithium)"
+        ],
+        "builtWith": "LLVM-19; ./configure --shared --cross-compiling --openssl-no-asm --dest-os=openharmony --dest-cpu=arm64 --v8-disable-temporal-support; CFLAGS -fno-emulated-tls -DNDEBUG; llvm-strip. Node 26 builds Temporal from Rust crates with no OHOS cross target, hence --v8-disable-temporal-support (no Temporal API). libc++_shared.so bundled from the aarch64 libcxx-ndk triple (sha256 25b5fb98…)."
+      },
+      "gates": {
+        "typeDyn": true,
+        "ptInterp": 0,
+        "machineAArch64": true,
+        "neededLibcxx": true,
+        "exportsNodeStart": true,
+        "sha256Match": true,
+        "versionGeq2219": true
+      },
+      "verifiedOn": null,
+      "verifiedDevice": null,
+      "verifiedNotes": "自建产物（CI run 41221254869，稳定 Release v26.13.0）：静态 ELF 门禁全过，SONAME=libnode.so.147（Node 26，ABI 147，LTS Lithium）。引擎与 libc++_shared.so 均为 AArch64。Temporal 已禁用。真机验证待做。",
+      "staticGatesVerifiedOn": "2026-10-31",
+      "ohpmPackage": "@fellow99/node-runtime@26.13.0"
+    },
     {
       "node": "v24.2.0",
       "nodeModuleVersion": 137,
@@ -121,7 +177,7 @@
       "verifiedDevice": null,
       "verifiedNotes": "自建产物（CI run 40212292303）：七项静态 ELF 门禁 CI + 本机双过（ET_DYN / PT_INTERP=0 / AArch64 / NEEDED libc++_shared.so+lib.so / 导出 node::Start / SHA-256 / 版本串），SONAME=libnode.so.137。真机验证待做；与 v24.2.0 同 ABI(137)，升级为 drop-in，但新二进制须独立设备验证后方能发布 ohpm 24.22.1。",
       "staticGatesVerifiedOn": "2026-10-26",
-      "ohpmPackage": null
+      "ohpmPackage": "@fellow99/node-runtime@24.22.1"
     },
     {
       "node": "v22.23.4",
@@ -178,7 +234,7 @@
       "verifiedDevice": null,
       "verifiedNotes": "自建产物（CI run 40213105923）：七项静态 ELF 门禁 CI + 本机双过，SONAME=libnode.so.127（ABI 127，Node 22 LTS Jod）。真机验证待做；与 24 线 ABI 不同（127 vs 137），但 bridge 以 dlopen 按名加载、不链 SONAME，故同一 bridge 可载。发布 ohpm 22.23.4 前须设备验证。",
       "staticGatesVerifiedOn": "2026-10-26",
-      "ohpmPackage": null
+      "ohpmPackage": "@fellow99/node-runtime@22.23.4"
     }
   ],
   "libcxx": {

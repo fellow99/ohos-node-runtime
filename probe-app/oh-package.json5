@@ -1,0 +1,10 @@
+{
+  "name": "probeapp",
+  "version": "0.1.0",
+  "description": "ohos-node-runtime 101-probe-app：HAP 探针（载荷就位/版本事实/ELF 头/加载边界，--ps probeAuto 无头）",
+  // 目录名 `probe-app/` 便于阅读；module 标识符 `probeapp`（pattern 不允许连字符）。
+  // runtimehar 走相对路径（同仓 resolver，offline 可建）；libnode.so/libc++_shared.so 随其打包进 HAP。
+  "dependencies": {
+    "@fellow99/node-runtime": "file:../runtime-har"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "module": {
+    // module.name 受 pattern 约束（`^[a-zA-Z][0-9a-zA-Z_.]*$`，不允许中划线）——目录用 probe-app/，标识符用 probeapp。
+    "name": "probeapp",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "2in1",
+      "tablet"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:icon",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "action.system.home"
+            ]
+          }
+        ]
+      }
+    ],
+    // 探针只读本地文件 + 常量，不跑 Node、不出网、不做 JIT ⇒ 无需任何权限。
+    "requestPermissions": []
+  }
+}

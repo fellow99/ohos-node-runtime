@@ -13,3 +13,6 @@ runtime-har/libs/
 !/runtime/node-*/PROVENANCE.md
 # ohpm 发布产物（HAR，不入库）
 /dist-har/
+# ohpm 依赖解析产物（根 / 各模块）
+oh_modules/
+.ohpm/

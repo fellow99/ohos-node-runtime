@@ -1,0 +1,16 @@
+{
+  "_meta": "authoring-time snapshot generated from runtime.lock.json (2026-11-05); do not hand-edit",
+  "source": "runtime.lock.json",
+  "activeNode": "v26.13.0",
+  "activeAbi": "arm64-v8a",
+  "nodeModuleVersion": 147,
+  "file": "libnode-arm64.so",
+  "deployAs": "libnode.so",
+  "size": 119868824,
+  "sha256": "15e9e17f93d7aafd11b622ac94cccccf6547ee66cf782fdda5a37c8223ecb57b",
+  "soname": "libnode.so.147",
+  "needsLibcxx": true,
+  "libcxxFile": "libc++_shared.so",
+  "libcxxFrom": "ohos-sdk",
+  "libcxxSdkRelPath": "native/llvm/lib/aarch64-linux-ohos/libc++_shared.so"
+}

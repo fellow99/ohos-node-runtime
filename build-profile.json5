@@ -40,6 +40,18 @@
           ]
         }
       ]
+    },
+    {
+      "name": "probeapp",
+      "srcPath": "./probe-app",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,7 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "ohos-node-runtime 探针 HAP（载荷/版本/ELF/边界）" },
+    { "name": "EntryAbility_desc", "value": "Node Runtime 探针" },
+    { "name": "EntryAbility_label", "value": "Node Runtime 探针" }
+  ]
+}

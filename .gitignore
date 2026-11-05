@@ -17,5 +17,3 @@ runtime-har/libs/
 oh_modules/
 .ohpm/
 
-# 构建/测试日志（不入库）
-logs/

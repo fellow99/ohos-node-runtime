@@ -16,3 +16,6 @@ runtime-har/libs/
 # ohpm 依赖解析产物（根 / 各模块）
 oh_modules/
 .ohpm/
+
+# 构建/测试日志（不入库）
+logs/

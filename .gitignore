@@ -17,3 +17,6 @@ runtime-har/libs/
 oh_modules/
 .ohpm/
 
+# 探针测试报告留档（不入库）
+logs/
+
